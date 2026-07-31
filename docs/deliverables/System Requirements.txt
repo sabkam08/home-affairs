@@ -1,0 +1,36 @@
+Functional Requirements:
+
+-Intelligent search (keywords, file type, date)
+-Filter documents(file type, date modified, ) functions.
+-General access folders (Folder for general employee policies etc.)
+-Multi-format Upload of documents (Drag and drop files onto system)
+-Role-Based Encryptions (Recognize role and access based on user instance)
+-Version control (Track changes of file).
+-Invite employees for document collaboration (Rights modified by doc owner).
+-Leave comments on docs.
+-Alerts to collaborators on changes made to specific documents (can be silenced).
+-Alerts for document approvals and rejections. Automated mailing.
+-IT superuser to add and delete user accounts.
+-Lock accounts for multiple incorrect password entries (max 5times).
+-Reset email process should user forget password.
+-Recycle bin for accidental deletion of document.
+-Make session timeout after inactivity (10 minutes, but 3minutes for demo).
+-The system shall detect duplicate uploads.
+-Citizen Portal. Allow citizens to apply online.
+
+
+Nice To have Functional requirement (Do not include):
+
+-Scan documents of citizen docs from printer to system.
+-Retrieve national register of citizens (ABIS).
+-Biometric scans,
+
+
+Non Functional Requirements:
+
+-System must be scalable to manage large amounts of records and data.
+-Performance: Users must be able to edit, delete, save files in a timely manner.
+-Disaster Recovery.
+-Runtime measures to ensure system running 24/7.
+
+

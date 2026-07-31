@@ -1,0 +1,7 @@
+Documents:
+
+-Activity, State Modeling and ER Diagrams
+-Component Based Architecture
+-System Flowcharts, Sequence Diagrams
+-Interactive Mockups (User View Simulations, UI Mockups)
+-Requirement Traceability (Each design choice linked to requirement)s

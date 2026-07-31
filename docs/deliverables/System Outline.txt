@@ -1,0 +1,21 @@
+Document Management System:
+
+Attribute of System:
+-Scanning
+-Storing data on db
+-Track (edit history from live-sharing)(E-Signatures)
+-Automated Delete deadlines
+-Document Encryption
+-File Indexing and Organising
+-Leave Comments on docs
+-Distributing of document (To be researched)(Read history)(
+
+System Entities:
+
+-User
+-Folder
+-Document
+-Document__Version
+-Permission
+-WorkFlowInstance
+-

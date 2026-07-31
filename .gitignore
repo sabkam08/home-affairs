@@ -1,1 +1,7 @@
 .idea
+frontend/node_modules
+frontend/dist
+backend/out
+backend/backend-storage
+backend-storage
+*.log
