@@ -5,6 +5,7 @@ This folder contains the completed design deliverables for the Home Affairs secu
 ## Files
 
 - [Architecture and component design](architecture.md)
+- [System analysis and feasibility study](system-analysis.md)
 - [ERD and state model](erd-and-state.md)
 - [Flowcharts and sequence diagrams](flow-and-sequence.md)
 - [Interactive mockups](mockups.md)

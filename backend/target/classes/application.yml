@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: home-affairs-backend
+
+server:
+  port: 8080
