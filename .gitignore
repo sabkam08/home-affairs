@@ -5,3 +5,9 @@ backend/out
 backend/backend-storage
 backend-storage
 *.log
+
+# C# / .NET build outputs
+**/bin/
+**/obj/
+.vs/
+.vscode/
