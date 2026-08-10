@@ -11,3 +11,5 @@ backend-storage
 **/obj/
 .vs/
 .vscode/
+
+.github/

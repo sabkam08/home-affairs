@@ -19,3 +19,14 @@ System Entities:
 -Permission
 -WorkFlowInstance
 -
+
+C# Backend Concepts
+
+Clean Architecture:
+-Software design pattern that creates modular and mainteneable code base by separating concerns and dependencies.
+-Enforces boundaries between software layers. Each layer has specific responsibility.
+-Allows for high level decoupling and abstraction. Not dependent on specific software frameworks.
+-In C# we create class library projects to represent specific layers.
+
+-ORM (Object Relation Mapper): Links model classes to relational database tables. Writes table objects based on these classes, called  migrations.
+-DAO (Data Access Object): Old school way of creating and writing db tables. Manual process. Preferred because of transparency.
