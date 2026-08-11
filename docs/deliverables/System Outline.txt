@@ -28,5 +28,12 @@ Clean Architecture:
 -Allows for high level decoupling and abstraction. Not dependent on specific software frameworks.
 -In C# we create class library projects to represent specific layers.
 
+Domain Layer:
+-Core Business Logic of the application. Entities. Repositories. Interfaces.
+
+Infrastructure Layer:
+-Implementation of external dependencies. Databases and third party libraries.
+-Depends on Domain Layer. Contains implementation of data access (Repositories, Services Client
+
 -ORM (Object Relation Mapper): Links model classes to relational database tables. Writes table objects based on these classes, called  migrations.
 -DAO (Data Access Object): Old school way of creating and writing db tables. Manual process. Preferred because of transparency.
