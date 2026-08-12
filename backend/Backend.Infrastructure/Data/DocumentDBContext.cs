@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Backend.Infrastructure.Data
 {
-    internal class DocumentDBContext
+    public class DocumentDBContext
     {
     }
 }

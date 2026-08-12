@@ -33,7 +33,11 @@ Domain Layer:
 
 Infrastructure Layer:
 -Implementation of external dependencies. Databases and third party libraries.
--Depends on Domain Layer. Contains implementation of data access (Repositories, Services Client
+-Depends on Domain Layer. Contains implementation of data access (Repositories, Services Client)
+
+Application Layer:
+-Contains Application specific business logic. Bridge between presentation layer and domain layer, services and mapper.
+-
 
 -ORM (Object Relation Mapper): Links model classes to relational database tables. Writes table objects based on these classes, called  migrations.
 -DAO (Data Access Object): Old school way of creating and writing db tables. Manual process. Preferred because of transparency.
