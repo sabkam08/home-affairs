@@ -1,5 +1,12 @@
 Document Management System:
 
+Brief background:
+A brief background of the system, I am building a document management system for home affairs. This system allows citizens and home affairs practitioners to log in to the system. 
+Citizens can request/apply for 2 services so long: to apply for birth certificates and new smart IDs (they should attach the necessary documents for their . 
+They are able to see the progress of their application and dates to collect their documents. 
+Then on the practioner side the practioners, the practitioners are able to see citizen applications in folders that represent different application types vetting stages of the applications. 
+Theres also folders that every practitioner has access to such as hr policies etc.
+
 Attribute of System:
 -Scanning
 -Storing data on db
