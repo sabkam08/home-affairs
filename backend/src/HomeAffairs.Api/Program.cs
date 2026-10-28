@@ -41,7 +41,8 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddApplication();
 
-builder.Services.AddInfrastructure();
+builder.Services.AddInfrastructure(
+    builder.Configuration);
 
 builder.Services.AddHealthChecks();
 
@@ -98,7 +99,13 @@ app.MapHealthChecks(
         Predicate = _ => false
     });
 
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = registration =>
+            registration.Tags.Contains("ready")
+    });
 
 app.Run();
 
