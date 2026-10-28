@@ -1,6 +1,15 @@
 <Solution>
-  <Project Path="Backend.Application/Backend.Application.csproj" Id="ca89274f-5a9b-44d5-9afc-235d9dd4a43b" />
-  <Project Path="Backend.Domain/Backend.Domain.csproj" Id="06b54f76-b2fc-4487-97af-29cf5a42dd97" />
-  <Project Path="Backend.Infrastructure/Backend.Infrastructure.csproj" Id="9fb127f1-30ba-4136-ac9f-337c41c61b73" />
-  <Project Path="backend/backend.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/HomeAffairs.Api/HomeAffairs.Api.csproj" />
+    <Project Path="src/HomeAffairs.Application/HomeAffairs.Application.csproj" />
+    <Project Path="src/HomeAffairs.Contracts/HomeAffairs.Contracts.csproj" />
+    <Project Path="src/HomeAffairs.Domain/HomeAffairs.Domain.csproj" />
+    <Project Path="src/HomeAffairs.Infrastructure/HomeAffairs.Infrastructure.csproj" />
+    <Project Path="src/HomeAffairs.Worker/HomeAffairs.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HomeAffairs.ArchitectureTests/HomeAffairs.ArchitectureTests.csproj" />
+    <Project Path="tests/HomeAffairs.IntegrationTests/HomeAffairs.IntegrationTests.csproj" />
+    <Project Path="tests/HomeAffairs.UnitTests/HomeAffairs.UnitTests.csproj" />
+  </Folder>
 </Solution>

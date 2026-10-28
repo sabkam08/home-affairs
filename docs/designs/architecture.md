@@ -1,65 +1,47 @@
-# Component-Based Architecture
+# HomeAffairs Architecture
 
-## Overview
+## Architectural Style
 
-The system is organised into three layers:
+Modular Monolith
 
-1. Presentation layer: React SPA for staff and citizens.
-2. Application layer: Java HTTP API handling authentication, documents, workflows, notifications, and citizen applications.
-3. Data and file layer: in-memory operational state with file storage for uploaded document binaries.
+## Principles
 
-## Component Diagram
+- Clean Architecture
+- Domain Driven Design
+- CQRS
+- Separation of Concerns
+- Security By Design
+- Auditability First
 
-```mermaid
-flowchart LR
-  subgraph Presentation[Presentation Layer]
-    WebApp[React Web App]
-    CitizenPortal[Citizen Portal Screens]
-    AdminScreens[Admin & Review Screens]
-  end
+## Core Aggregates
 
-  subgraph Application[Application Layer]
-    Api[Java HTTP API]
-    Auth[Authentication & Session Service]
-    Docs[Document Service]
-    Workflow[Workflow Service]
-    Users[User Administration Service]
-    Notify[Notification Service]
-    Citizen[Citizen Application Service]
-    Trace[Traceability Endpoint]
-  end
+### Application
 
-  subgraph Storage[Storage Layer]
-    State[In-Memory Domain State]
-    Files[Local File Storage]
-  end
+Root aggregate responsible for:
 
-  WebApp --> Api
-  CitizenPortal --> Api
-  AdminScreens --> Api
+- Workflow
+- Documents
+- Status
+- Assignment
 
-  Api --> Auth
-  Api --> Docs
-  Api --> Workflow
-  Api --> Users
-  Api --> Notify
-  Api --> Citizen
-  Api --> Trace
+### Citizen
 
-  Auth --> State
-  Docs --> State
-  Workflow --> State
-  Users --> State
-  Notify --> State
-  Citizen --> State
-  Docs --> Files
-  Citizen --> Files
-```
+Represents both Applicants and Subjects.
 
-## Key Design Decisions
+### Document
 
-- Authentication is token-based with a short demo session timeout to satisfy the inactivity requirement.
-- Documents are versioned and protected with role-aware access checks and per-document permissions.
-- Duplicate uploads are prevented through checksum comparison before storage.
-- Citizen submissions are routed through the same workflow engine as internal approvals.
-- File binaries are stored separately from metadata so versions can be tracked cleanly.
+Version controlled document entity.
+
+### Workflow Instance
+
+Tracks progress through an application workflow.
+
+## Patterns
+
+- Repository Pattern
+- Specification Pattern
+- Strategy Pattern
+- State Pattern
+- Domain Events
+- Outbox Pattern
+- Optimistic Concurrency

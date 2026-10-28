@@ -1,0 +1,69 @@
+# Build output
+bin/
+obj/
+out/
+publish/
+artifacts/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+.history/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Test output
+TestResults/
+coverage/
+coverage.*
+*.coverage
+*.trx
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Logs
+logs/
+*.log
+
+# Local databases and SQL files
+*.mdf
+*.ldf
+*.bak
+
+# Local configuration
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.*
+!.env.example
+
+# Secrets and certificates
+secrets.json
+*.pfx
+*.p12
+*.key
+*.pem
+
+# Docker local volumes
+docker-data/
+sql-data/
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
