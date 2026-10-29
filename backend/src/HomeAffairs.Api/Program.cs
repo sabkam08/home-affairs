@@ -1,3 +1,6 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using HomeAffairs.Api.ExceptionHandling;
 using HomeAffairs.Api.Middleware;
 using HomeAffairs.Application;
@@ -21,6 +24,49 @@ builder.Host.UseSerilog((context, services, configuration) =>
 });
 
 builder.Services.AddControllers();
+
+var jwtIssuer =
+    builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException(
+        "JWT issuer has not been configured.");
+
+var jwtAudience =
+    builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException(
+        "JWT audience has not been configured.");
+
+var jwtSigningKey =
+    builder.Configuration["Jwt:SigningKey"]
+    ?? throw new InvalidOperationException(
+        "JWT signing key has not been configured.");
+
+builder.Services
+    .AddAuthentication(
+        JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtIssuer,
+
+                ValidateAudience = true,
+                ValidAudience = jwtAudience,
+
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey =
+                    new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(
+                            jwtSigningKey)),
+
+                ValidateLifetime = true,
+
+                ClockSkew = TimeSpan.FromSeconds(30)
+            };
+    });
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddProblemDetails();
 
@@ -86,6 +132,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

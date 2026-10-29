@@ -1,8 +1,11 @@
+using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Abstractions.Persistence;
+using HomeAffairs.Application.Abstractions.Time;
+using HomeAffairs.Infrastructure.Identity;
 using HomeAffairs.Infrastructure.Persistence;
+using HomeAffairs.Infrastructure.Time;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace HomeAffairs.Infrastructure;
 
@@ -27,8 +30,40 @@ public static class DependencyInjection
                 "Database command timeout must be greater than zero.")
             .ValidateOnStart();
 
-        services.AddSingleton<ISqlConnectionFactory,
+        services
+            .AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(
+                JwtOptions.SectionName))
+            .Validate(
+                options =>
+                    !string.IsNullOrWhiteSpace(options.Issuer),
+                "JWT issuer is required.")
+            .Validate(
+                options =>
+                    !string.IsNullOrWhiteSpace(options.Audience),
+                "JWT audience is required.")
+            .Validate(
+                options =>
+                    !string.IsNullOrWhiteSpace(options.SigningKey)
+                    && options.SigningKey.Length >= 32,
+                "JWT signing key must contain at least 32 characters.")
+            .Validate(
+                options =>
+                    options.AccessTokenLifetimeMinutes > 0,
+                "JWT access-token lifetime must be greater than zero.")
+            .ValidateOnStart();
+
+        services.AddSingleton<
+            ISqlConnectionFactory,
             SqlConnectionFactory>();
+
+        services.AddSingleton<IClock, SystemClock>();
+
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<
+            IAccessTokenProvider,
+            JwtAccessTokenProvider>();
 
         services
             .AddHealthChecks()

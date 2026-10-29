@@ -1,4 +1,6 @@
 using FluentValidation;
+using HomeAffairs.Application.Common.Behaviours;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HomeAffairs.Application;
@@ -13,6 +15,9 @@ public static class DependencyInjection
         services.AddMediatR(configuration =>
         {
             configuration.RegisterServicesFromAssembly(assembly);
+
+            configuration.AddOpenBehavior(
+                typeof(ValidationBehaviour<,>));
         });
 
         services.AddValidatorsFromAssembly(assembly);
