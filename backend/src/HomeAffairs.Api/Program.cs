@@ -10,6 +10,8 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using HomeAffairs.Api.Identity;
+using HomeAffairs.Application.Abstractions.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +26,11 @@ builder.Host.UseSerilog((context, services, configuration) =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddScoped<
+    IRequestContext,
+    HttpRequestContext>();
 
 var jwtIssuer =
     builder.Configuration["Jwt:Issuer"]

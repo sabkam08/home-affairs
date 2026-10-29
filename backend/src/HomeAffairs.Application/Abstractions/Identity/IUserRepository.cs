@@ -19,4 +19,16 @@ public interface IUserRepository
     Task CreateCitizenAsync(
         User user,
         CancellationToken cancellationToken);
+
+    Task<LoginAttemptResult> RecordFailedLoginAsync(
+        Guid userId,
+        int maximumFailedLoginAttempts,
+        int lockoutDurationMinutes,
+        DateTimeOffset occurredAtUtc,
+        CancellationToken cancellationToken);
+
+    Task RecordSuccessfulLoginAsync(
+        Guid userId,
+        DateTimeOffset occurredAtUtc,
+        CancellationToken cancellationToken);
 }

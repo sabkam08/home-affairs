@@ -15,10 +15,32 @@ public sealed class GlobalExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        logger.LogError(
-            exception,
-            "An exception occurred while processing request {TraceIdentifier}",
-            httpContext.TraceIdentifier);
+        if (exception is InvalidCredentialsException)
+        {
+            logger.LogWarning(
+                "Authentication failed for request {TraceIdentifier}",
+                httpContext.TraceIdentifier);
+        }
+        else if (exception is ValidationException)
+        {
+            logger.LogWarning(
+                "Request validation failed for request {TraceIdentifier}",
+                httpContext.TraceIdentifier);
+        }
+        else if (exception is DomainException)
+        {
+            logger.LogWarning(
+                exception,
+                "A business rule was violated for request {TraceIdentifier}",
+                httpContext.TraceIdentifier);
+        }
+        else
+        {
+            logger.LogError(
+                exception,
+                "An unexpected exception occurred for request {TraceIdentifier}",
+                httpContext.TraceIdentifier);
+        }
 
         var problemDetails = exception switch
         {

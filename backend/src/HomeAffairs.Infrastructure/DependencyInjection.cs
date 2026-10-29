@@ -53,6 +53,20 @@ public static class DependencyInjection
                 "JWT access-token lifetime must be greater than zero.")
             .ValidateOnStart();
 
+        services
+            .AddOptions<IdentitySecuritySettings>()
+            .Bind(configuration.GetSection(
+                IdentitySecuritySettings.SectionName))
+            .Validate(
+                options =>
+                    options.MaximumFailedLoginAttempts > 0,
+                "Maximum failed login attempts must be greater than zero.")
+            .Validate(
+                options =>
+                    options.LockoutDurationMinutes > 0,
+                "Lockout duration must be greater than zero.")
+            .ValidateOnStart();
+
         services.AddSingleton<
             ISqlConnectionFactory,
             SqlConnectionFactory>();
@@ -60,6 +74,11 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
 
         services.AddScoped<IUserRepository, UserRepository>();
+
+        services.AddScoped<
+            ISecurityEventRepository,
+            SecurityEventRepository>();
+
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<
             IAccessTokenProvider,

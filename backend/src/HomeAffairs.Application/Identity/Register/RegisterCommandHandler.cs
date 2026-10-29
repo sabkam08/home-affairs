@@ -1,5 +1,6 @@
 using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Abstractions.Time;
+using HomeAffairs.Application.Identity;
 using HomeAffairs.Domain.Common.Exceptions;
 using HomeAffairs.Domain.Identity;
 using MediatR;
@@ -8,8 +9,10 @@ namespace HomeAffairs.Application.Identity.Register;
 
 internal sealed class RegisterCommandHandler(
     IUserRepository userRepository,
+    ISecurityEventRepository securityEventRepository,
     IPasswordHasher passwordHasher,
     IAccessTokenProvider accessTokenProvider,
+    IRequestContext requestContext,
     IClock clock)
     : IRequestHandler<RegisterCommand, RegisterResult>
 {
@@ -19,6 +22,7 @@ internal sealed class RegisterCommandHandler(
     {
         var email = request.Email.Trim();
         var normalizedEmail = email.ToUpperInvariant();
+        var occurredAtUtc = clock.UtcNow;
 
         var existingUser =
             await userRepository.GetByEmailAsync(
@@ -36,19 +40,33 @@ internal sealed class RegisterCommandHandler(
             UserId = Guid.NewGuid(),
             Email = email,
             NormalizedEmail = normalizedEmail,
-            PasswordHash = passwordHasher.Hash(request.Password),
+            PasswordHash =
+                passwordHasher.Hash(request.Password),
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             IsActive = true,
             FailedLoginAttempts = 0,
-            CreatedAtUtc = clock.UtcNow
+            CreatedAtUtc = occurredAtUtc
         };
 
         await userRepository.CreateCitizenAsync(
             user,
             cancellationToken);
 
-        IReadOnlyCollection<string> roles = ["CITIZEN"];
+        IReadOnlyCollection<string> roles =
+            ["CITIZEN"];
+
+        await securityEventRepository.CreateAsync(
+            new SecurityEvent(
+                Guid.NewGuid(),
+                user.UserId,
+                SecurityEventTypes.UserRegistered,
+                "A citizen account was registered.",
+                requestContext.IpAddress,
+                requestContext.UserAgent,
+                requestContext.CorrelationId,
+                occurredAtUtc),
+            cancellationToken);
 
         var accessToken =
             accessTokenProvider.Create(user, roles);

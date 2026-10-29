@@ -100,4 +100,73 @@ internal sealed class UserRepository(
 
         await connection.ExecuteAsync(command);
     }
+
+    public async Task<LoginAttemptResult> RecordFailedLoginAsync(
+    Guid userId,
+    int maximumFailedLoginAttempts,
+    int lockoutDurationMinutes,
+    DateTimeOffset occurredAtUtc,
+    CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText: "identity.User_RecordFailedLogin",
+            parameters: new
+            {
+                UserId = userId,
+                MaximumFailedLoginAttempts =
+                    maximumFailedLoginAttempts,
+                LockoutDurationMinutes =
+                    lockoutDurationMinutes,
+                OccurredAtUtc = occurredAtUtc.UtcDateTime
+            },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken);
+
+        var result =
+            await connection.QuerySingleAsync<LoginAttemptRecord>(
+                command);
+
+        return new LoginAttemptResult(
+            result.FailedLoginAttempts,
+            result.LockedUntilUtc.HasValue
+                ? new DateTimeOffset(
+                    DateTime.SpecifyKind(
+                        result.LockedUntilUtc.Value,
+                        DateTimeKind.Utc))
+                : null);
+    }
+
+    public async Task RecordSuccessfulLoginAsync(
+        Guid userId,
+        DateTimeOffset occurredAtUtc,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText:
+                "identity.User_RecordSuccessfulLogin",
+            parameters: new
+            {
+                UserId = userId,
+                OccurredAtUtc = occurredAtUtc.UtcDateTime
+            },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
+    }
+
+    private sealed class LoginAttemptRecord
+    {
+        public int FailedLoginAttempts { get; init; }
+
+        public DateTime? LockedUntilUtc { get; init; }
+    }
 }
