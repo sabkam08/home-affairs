@@ -51,6 +51,10 @@ public static class DependencyInjection
                 options =>
                     options.AccessTokenLifetimeMinutes > 0,
                 "JWT access-token lifetime must be greater than zero.")
+            .Validate(
+                options =>
+                    options.RefreshTokenLifetimeDays > 0,
+                    "JWT refresh-token lifetime must be greater than zero.")
             .ValidateOnStart();
 
         services
@@ -66,6 +70,18 @@ public static class DependencyInjection
                     options.LockoutDurationMinutes > 0,
                 "Lockout duration must be greater than zero.")
             .ValidateOnStart();
+
+        services.AddSingleton<
+            IRefreshTokenGenerator,
+            RefreshTokenGenerator>();
+
+        services.AddScoped<
+            IRefreshTokenRepository,
+            RefreshTokenRepository>();
+
+        services.AddScoped<
+            IRefreshTokenIssuer,
+            RefreshTokenIssuer>();
 
         services.AddSingleton<
             ISqlConnectionFactory,

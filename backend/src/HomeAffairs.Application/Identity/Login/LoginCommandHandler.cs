@@ -14,6 +14,7 @@ internal sealed class LoginCommandHandler(
     IAccessTokenProvider accessTokenProvider,
     IRequestContext requestContext,
     IClock clock,
+    IRefreshTokenIssuer refreshTokenIssuer,
     IOptions<IdentitySecuritySettings> securitySettings)
     : IRequestHandler<LoginCommand, LoginResult>
 {
@@ -29,6 +30,11 @@ internal sealed class LoginCommandHandler(
         var user =
             await userRepository.GetByEmailAsync(
                 normalizedEmail,
+                cancellationToken);
+
+        var refreshToken =
+            await refreshTokenIssuer.IssueAsync(
+                user.UserId,
                 cancellationToken);
 
         if (user is null)
@@ -128,7 +134,9 @@ internal sealed class LoginCommandHandler(
             user.LastName,
             roles,
             accessToken.AccessToken,
-            accessToken.ExpiresAtUtc);
+            accessToken.ExpiresAtUtc,
+            refreshToken.RefreshToken,
+            refreshToken.ExpiresAtUtc);
     }
 
     private Task RecordSecurityEventAsync(

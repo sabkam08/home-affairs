@@ -16,4 +16,6 @@ public sealed record RegisterResult(
     string LastName,
     IReadOnlyCollection<string> Roles,
     string AccessToken,
-    DateTimeOffset ExpiresAtUtc);
+    DateTimeOffset AccessTokenExpiresAtUtc,
+    string RefreshToken,
+    DateTimeOffset RefreshTokenExpiresAtUtc);

@@ -7,4 +7,6 @@ public sealed record AuthenticationResponse(
     string LastName,
     IReadOnlyCollection<string> Roles,
     string AccessToken,
-    DateTimeOffset ExpiresAtUtc);
+    DateTimeOffset AccessTokenExpiresAtUtc,
+    string RefreshToken,
+    DateTimeOffset RefreshTokenExpiresAtUtc);

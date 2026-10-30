@@ -13,7 +13,8 @@ internal sealed class RegisterCommandHandler(
     IPasswordHasher passwordHasher,
     IAccessTokenProvider accessTokenProvider,
     IRequestContext requestContext,
-    IClock clock)
+    IClock clock,
+    IRefreshTokenIssuer refreshTokenIssuer)
     : IRequestHandler<RegisterCommand, RegisterResult>
 {
     public async Task<RegisterResult> Handle(
@@ -27,6 +28,11 @@ internal sealed class RegisterCommandHandler(
         var existingUser =
             await userRepository.GetByEmailAsync(
                 normalizedEmail,
+                cancellationToken);
+
+        var refreshToken =
+            await refreshTokenIssuer.IssueAsync(
+                user.UserId,
                 cancellationToken);
 
         if (existingUser is not null)
@@ -78,6 +84,8 @@ internal sealed class RegisterCommandHandler(
             user.LastName,
             roles,
             accessToken.AccessToken,
-            accessToken.ExpiresAtUtc);
+            accessToken.ExpiresAtUtc,
+            refreshToken.RefreshToken,
+            refreshToken.ExpiresAtUtc);
     }
 }
