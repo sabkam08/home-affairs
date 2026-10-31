@@ -1,16 +1,19 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using HomeAffairs.Api.ExceptionHandling;
-using HomeAffairs.Api.Middleware;
-using HomeAffairs.Application;
-using HomeAffairs.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using HomeAffairs.Api.ExceptionHandling;
+using HomeAffairs.Api.Middleware;
+using HomeAffairs.Application;
+using HomeAffairs.Infrastructure;
 using HomeAffairs.Api.Identity;
+using HomeAffairs.Api.Authorization;
+using HomeAffairs.Application.Authorization;
 using HomeAffairs.Application.Abstractions.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +34,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<
     IRequestContext,
     HttpRequestContext>();
+
+builder.Services.AddScoped<
+    ICurrentUser,
+    CurrentUser>();
 
 var jwtIssuer =
     builder.Configuration["Jwt:Issuer"]
@@ -73,7 +80,100 @@ builder.Services
             };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(
+        AuthorizationPolicies.ProfileReadSelf,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Profile.ReadSelf));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.ApplicationCreate,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Applications.Create));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.ApplicationReadAll,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Applications.ReadAll));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.ApplicationProcess,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Applications.Process));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.ApplicationApprove,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Applications.Approve));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.ManageUsers,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Identity.ManageUsers));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.ManageRoles,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Identity.ManageRoles));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.AuditRead,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Audit.Read));
+        });
+});
+
+builder.Services.AddScoped<
+    IAuthorizationHandler,
+    PermissionAuthorizationHandler>();
 
 builder.Services.AddProblemDetails();
 

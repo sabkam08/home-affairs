@@ -70,7 +70,7 @@ public static class DependencyInjection
                     options.LockoutDurationMinutes > 0,
                 "Lockout duration must be greater than zero.")
             .ValidateOnStart();
-
+               
         services.AddSingleton<
             IRefreshTokenGenerator,
             RefreshTokenGenerator>();
@@ -99,6 +99,10 @@ public static class DependencyInjection
         services.AddScoped<
             IAccessTokenProvider,
             JwtAccessTokenProvider>();
+
+        services.AddScoped<
+            IUserPermissionRepository,
+            UserPermissionRepository>();
 
         services
             .AddHealthChecks()

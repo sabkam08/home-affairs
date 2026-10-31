@@ -1,20 +1,22 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using HomeAffairs.Api.Authorization;
 using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Register;
 using HomeAffairs.Application.Identity.Logout;
 using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Contracts.Identity;
-using MediatR;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace HomeAffairs.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
-public sealed class AuthController(ISender sender, IUserRepository userRepository) : ControllerBase
+public sealed class AuthController(ISender sender, IUserRepository userRepository, IUserPermissionRepository permissionRepository,
+    ICurrentUser currentUser) : ControllerBase
 {
     [AllowAnonymous]
     [HttpPost("register")]
@@ -72,7 +74,7 @@ public sealed class AuthController(ISender sender, IUserRepository userRepositor
                 result.RefreshTokenExpiresAtUtc));
     }
 
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.ProfileReadSelf)]
     [HttpGet("me")]
     [ProducesResponseType(typeof(CurrentUserResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -136,6 +138,36 @@ public sealed class AuthController(ISender sender, IUserRepository userRepositor
                 result.AccessTokenExpiresAtUtc,
                 result.RefreshToken,
                 result.RefreshTokenExpiresAtUtc));
+    }
+
+    [Authorize]
+    [HttpGet("permissions")]
+    [ProducesResponseType(
+    typeof(CurrentUserPermissionsResponse),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(
+    StatusCodes.Status401Unauthorized)]
+    public async Task<
+    ActionResult<CurrentUserPermissionsResponse>>
+    GetPermissions(
+        CancellationToken cancellationToken)
+    {
+        if (!currentUser.UserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var permissions =
+            await permissionRepository
+                .GetPermissionsAsync(
+                    currentUser.UserId.Value,
+                    cancellationToken);
+
+        return Ok(
+            new CurrentUserPermissionsResponse(
+                currentUser.UserId.Value,
+                currentUser.Roles,
+                permissions));
     }
 
     [AllowAnonymous]
