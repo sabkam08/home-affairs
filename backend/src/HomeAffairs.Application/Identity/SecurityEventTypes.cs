@@ -19,4 +19,10 @@ public static class SecurityEventTypes
     public const string RefreshTokenReuseDetected = "REFRESH_TOKEN_REUSE_DETECTED";
 
     public const string UserLoggedOut = "USER_LOGGED_OUT";
+
+    public const string StaffUserCreated = "STAFF_USER_CREATED";
+
+    public const string UserRoleAssigned = "USER_ROLE_ASSIGNED";
+
+    public const string UserRoleRemoved = "USER_ROLE_REMOVED";
 }

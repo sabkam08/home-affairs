@@ -163,6 +163,87 @@ internal sealed class UserRepository(
         await connection.ExecuteAsync(command);
     }
 
+    public async Task CreateStaffAsync(
+    User user,
+    string roleCode,
+    Guid createdByUserId,
+    CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText: "[identity].User_CreateStaff",
+            parameters: new
+            {
+                user.UserId,
+                user.Email,
+                user.NormalizedEmail,
+                user.PasswordHash,
+                user.FirstName,
+                user.LastName,
+                RoleCode = roleCode,
+                CreatedAtUtc =
+                    user.CreatedAtUtc.UtcDateTime,
+                CreatedByUserId = createdByUserId
+            },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
+    }
+
+    public async Task AssignRoleAsync(
+        Guid userId,
+        string roleCode,
+        Guid assignedByUserId,
+        DateTimeOffset assignedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText: "[identity].User_AssignRole",
+            parameters: new
+            {
+                UserId = userId,
+                RoleCode = roleCode,
+                AssignedAtUtc =
+                    assignedAtUtc.UtcDateTime,
+                AssignedByUserId =
+                    assignedByUserId
+            },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
+    }
+
+    public async Task RemoveRoleAsync(
+        Guid userId,
+        string roleCode,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText: "[identity].User_RemoveRole",
+            parameters: new
+            {
+                UserId = userId,
+                RoleCode = roleCode
+            },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
+    }
+
     private sealed class LoginAttemptRecord
     {
         public int FailedLoginAttempts { get; init; }

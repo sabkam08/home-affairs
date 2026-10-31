@@ -31,4 +31,22 @@ public interface IUserRepository
         Guid userId,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken);
+
+    Task CreateStaffAsync(
+    User user,
+    string roleCode,
+    Guid createdByUserId,
+    CancellationToken cancellationToken);
+
+    Task AssignRoleAsync(
+        Guid userId,
+        string roleCode,
+        Guid assignedByUserId,
+        DateTimeOffset assignedAtUtc,
+        CancellationToken cancellationToken);
+
+    Task RemoveRoleAsync(
+        Guid userId,
+        string roleCode,
+        CancellationToken cancellationToken);
 }
