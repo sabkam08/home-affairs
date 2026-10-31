@@ -54,14 +54,10 @@ internal sealed class RefreshTokenRepository(
             parameters: new
             {
                 CurrentTokenHash = currentTokenHash,
-                NewRefreshTokenId =
-                    replacementToken.RefreshTokenId,
-                NewTokenHash =
-                    replacementToken.TokenHash,
-                CreatedAtUtc =
-                    replacementToken.CreatedAtUtc.UtcDateTime,
-                ExpiresAtUtc =
-                    replacementToken.ExpiresAtUtc.UtcDateTime,
+                NewRefreshTokenId = replacementToken.RefreshTokenId,
+                NewTokenHash = replacementToken.TokenHash,
+                CreatedAtUtc = replacementToken.CreatedAtUtc.UtcDateTime,
+                ExpiresAtUtc = replacementToken.ExpiresAtUtc.UtcDateTime,
                 IpAddress = ipAddress
             },
             commandType: CommandType.StoredProcedure,

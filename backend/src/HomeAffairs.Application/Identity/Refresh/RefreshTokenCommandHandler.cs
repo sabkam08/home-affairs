@@ -1,20 +1,18 @@
 using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Abstractions.Time;
-using HomeAffairs.Application.Identity;
 using MediatR;
-using Microsoft.Extensions.Options;
 
 namespace HomeAffairs.Application.Identity.Refresh;
 
 internal sealed class RefreshTokenCommandHandler(
     IRefreshTokenGenerator tokenGenerator,
     IRefreshTokenRepository tokenRepository,
+    IRefreshTokenIssuer refreshTokenIssuer,
     IUserRepository userRepository,
     IAccessTokenProvider accessTokenProvider,
     ISecurityEventRepository securityEventRepository,
     IRequestContext requestContext,
-    IClock clock,
-    IOptions<RefreshTokenSettings> settings)
+    IClock clock)
     : IRequestHandler<
         RefreshTokenCommand,
         RefreshTokenResult>
@@ -24,24 +22,31 @@ internal sealed class RefreshTokenCommandHandler(
         CancellationToken cancellationToken)
     {
         var occurredAtUtc = clock.UtcNow;
+
         var currentTokenHash =
             tokenGenerator.ComputeHash(
                 request.RefreshToken);
 
-        var generatedReplacement =
-            tokenGenerator.Generate();
+        /*
+            Create the replacement token in memory.
 
-        var replacementExpiresAtUtc =
-            occurredAtUtc.AddDays(
-                settings.Value.RefreshTokenLifetimeDays);
+            It is NOT persisted here.
+            The rotation stored procedure will atomically:
+              1. validate the old token,
+              2. revoke it,
+              3. create this replacement.
+        */
+        var issuedReplacement =
+            refreshTokenIssuer.Create(Guid.Empty);
 
-        var replacement = new RefreshTokenRecord(
-            Guid.NewGuid(),
-            Guid.Empty,
-            generatedReplacement.TokenHash,
-            occurredAtUtc,
-            replacementExpiresAtUtc,
-            requestContext.IpAddress);
+        var replacement =
+            new RefreshTokenRecord(
+                issuedReplacement.RefreshTokenId,
+                Guid.Empty,
+                issuedReplacement.TokenHash,
+                issuedReplacement.CreatedAtUtc,
+                issuedReplacement.ExpiresAtUtc,
+                requestContext.IpAddress);
 
         var rotation =
             await tokenRepository.RotateAsync(
@@ -58,11 +63,11 @@ internal sealed class RefreshTokenCommandHandler(
             if (rotation.UserId.HasValue)
             {
                 await RecordEventAsync(
-                    rotation.UserId,
+                    rotation.UserId.Value,
                     SecurityEventTypes
                         .RefreshTokenReuseDetected,
-                    "A revoked refresh token was submitted again. " +
-                    "All active refresh tokens were revoked.",
+                    "A revoked refresh token was submitted again. "
+                    + "All active refresh tokens were revoked.",
                     occurredAtUtc,
                     cancellationToken);
             }
@@ -82,10 +87,9 @@ internal sealed class RefreshTokenCommandHandler(
         var user =
             await userRepository.GetByIdAsync(
                 rotation.UserId.Value,
-                cancellationToken)
-            ?? throw new InvalidRefreshTokenException();
+                cancellationToken);
 
-        if (!user.IsActive)
+        if (user is null || !user.IsActive)
         {
             throw new InvalidRefreshTokenException();
         }
@@ -96,7 +100,9 @@ internal sealed class RefreshTokenCommandHandler(
                 cancellationToken);
 
         var accessToken =
-            accessTokenProvider.Create(user, roles);
+            accessTokenProvider.Create(
+                user,
+                roles);
 
         await RecordEventAsync(
             user.UserId,
@@ -113,12 +119,12 @@ internal sealed class RefreshTokenCommandHandler(
             roles,
             accessToken.AccessToken,
             accessToken.ExpiresAtUtc,
-            generatedReplacement.Token,
-            replacementExpiresAtUtc);
+            issuedReplacement.RefreshToken,
+            issuedReplacement.ExpiresAtUtc);
     }
 
     private Task RecordEventAsync(
-        Guid? userId,
+        Guid userId,
         string eventType,
         string description,
         DateTimeOffset occurredAtUtc,

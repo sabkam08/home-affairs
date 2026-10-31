@@ -30,11 +30,6 @@ internal sealed class RegisterCommandHandler(
                 normalizedEmail,
                 cancellationToken);
 
-        var refreshToken =
-            await refreshTokenIssuer.IssueAsync(
-                user.UserId,
-                cancellationToken);
-
         if (existingUser is not null)
         {
             throw new DomainException(
@@ -54,6 +49,11 @@ internal sealed class RegisterCommandHandler(
             FailedLoginAttempts = 0,
             CreatedAtUtc = occurredAtUtc
         };
+
+        var refreshToken =
+            await refreshTokenIssuer.IssueAsync(
+                user.UserId,
+                cancellationToken);
 
         await userRepository.CreateCitizenAsync(
             user,

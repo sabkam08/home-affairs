@@ -3,6 +3,8 @@ using System.Security.Claims;
 using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Register;
+using HomeAffairs.Application.Identity.Logout;
+using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Contracts.Identity;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -12,26 +14,14 @@ namespace HomeAffairs.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
-public sealed class AuthController(
-    ISender sender,
-    IUserRepository userRepository)
-    : ControllerBase
+public sealed class AuthController(ISender sender, IUserRepository userRepository) : ControllerBase
 {
     [AllowAnonymous]
     [HttpPost("register")]
-    [ProducesResponseType(
-        typeof(AuthenticationResponse),
-        StatusCodes.Status201Created)]
-    [ProducesResponseType(
-        typeof(ValidationProblemDetails),
-        StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(
-        typeof(ProblemDetails),
-        StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<AuthenticationResponse>>
-        Register(
-            RegisterRequest request,
-            CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(AuthenticationResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AuthenticationResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
         var result = await sender.Send(
             new RegisterCommand(
@@ -48,7 +38,9 @@ public sealed class AuthController(
             result.LastName,
             result.Roles,
             result.AccessToken,
-            result.ExpiresAtUtc);
+            result.AccessTokenExpiresAtUtc,
+            result.RefreshToken,
+            result.RefreshTokenExpiresAtUtc);
 
         return Created(
             $"/api/v1/auth/users/{result.UserId}",
@@ -57,16 +49,9 @@ public sealed class AuthController(
 
     [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(
-        typeof(AuthenticationResponse),
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        typeof(ProblemDetails),
-        StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<AuthenticationResponse>>
-        Login(
-            LoginRequest request,
-            CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(AuthenticationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthenticationResponse>> Login(LoginRequest request, CancellationToken cancellationToken)
     {
         var result = await sender.Send(
             new LoginCommand(
@@ -82,21 +67,17 @@ public sealed class AuthController(
                 result.LastName,
                 result.Roles,
                 result.AccessToken,
-                result.ExpiresAtUtc));
+                result.AccessTokenExpiresAtUtc,
+                result.RefreshToken,
+                result.RefreshTokenExpiresAtUtc));
     }
 
     [Authorize]
     [HttpGet("me")]
-    [ProducesResponseType(
-        typeof(CurrentUserResponse),
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(
-        StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CurrentUserResponse>>
-        GetCurrentUser(
-            CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(CurrentUserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CurrentUserResponse>> GetCurrentUser(CancellationToken cancellationToken)
     {
         var userIdValue =
             User.FindFirstValue(
@@ -131,5 +112,41 @@ public sealed class AuthController(
                 user.FirstName,
                 user.LastName,
                 roles));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    [ProducesResponseType(typeof(AuthenticationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthenticationResponse>> RefreshAccessToken(RefreshTokenRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(
+            new RefreshTokenCommand(
+                request.RefreshToken),
+            cancellationToken);
+
+        return Ok(
+            new AuthenticationResponse(
+                result.UserId,
+                result.Email,
+                result.FirstName,
+                result.LastName,
+                result.Roles,
+                result.AccessToken,
+                result.AccessTokenExpiresAtUtc,
+                result.RefreshToken,
+                result.RefreshTokenExpiresAtUtc));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout(LogoutRequest request, CancellationToken cancellationToken)
+    {
+        await sender.Send(
+            new LogoutCommand(request.RefreshToken),
+            cancellationToken);
+
+        return NoContent();
     }
 }

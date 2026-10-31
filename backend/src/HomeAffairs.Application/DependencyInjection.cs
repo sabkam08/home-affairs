@@ -22,16 +22,6 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly);
 
-        services
-            .AddOptions<RefreshTokenSettings>()
-            .Bind(configuration.GetSection(
-                RefreshTokenSettings.SectionName))
-            .Validate(
-                options =>
-                    options.RefreshTokenLifetimeDays > 0,
-                "Refresh-token lifetime must be greater than zero.")
-            .ValidateOnStart();
-
         return services;
     }
 }

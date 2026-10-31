@@ -1,5 +1,6 @@
 using FluentValidation;
 using HomeAffairs.Application.Identity.Login;
+using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -34,6 +35,12 @@ public sealed class GlobalExceptionHandler(
                 "A business rule was violated for request {TraceIdentifier}",
                 httpContext.TraceIdentifier);
         }
+        else if (exception is InvalidCredentialsException or InvalidRefreshTokenException or RefreshTokenReuseException)
+        {
+            logger.LogWarning(
+                "Authentication-related request failed for {TraceIdentifier}",
+                httpContext.TraceIdentifier);
+        }
         else
         {
             logger.LogError(
@@ -56,6 +63,24 @@ public sealed class GlobalExceptionHandler(
                     Title = "Authentication failed",
                     Detail =
                         "The supplied email address or password is incorrect."
+                },
+
+            InvalidRefreshTokenException =>
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status401Unauthorized,
+                    Title = "Token refresh failed",
+                    Detail =
+                        "The refresh token is invalid or has expired."
+                },
+
+            RefreshTokenReuseException =>
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status401Unauthorized,
+                    Title = "Refresh token reuse detected",
+                    Detail =
+                        "Authentication is required again."
                 },
 
             DomainException domainException =>
