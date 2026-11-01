@@ -76,15 +76,16 @@ internal sealed class UserRepository(
     }
 
     public async Task CreateCitizenAsync(
-        User user,
-        CancellationToken cancellationToken)
+    User user,
+    CancellationToken cancellationToken)
     {
         await using var connection =
             await connectionFactory.OpenConnectionAsync(
                 cancellationToken);
 
         var command = new CommandDefinition(
-            commandText: "identity.User_CreateCitizen",
+            commandText:
+                "[identity].User_CreateCitizen",
             parameters: new
             {
                 user.UserId,
@@ -96,8 +97,10 @@ internal sealed class UserRepository(
                 CreatedAtUtc =
                     user.CreatedAtUtc.UtcDateTime
             },
-            commandType: CommandType.StoredProcedure,
-            cancellationToken: cancellationToken);
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
 
         await connection.ExecuteAsync(command);
     }

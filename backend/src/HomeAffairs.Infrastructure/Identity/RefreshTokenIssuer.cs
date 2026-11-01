@@ -12,17 +12,22 @@ internal sealed class RefreshTokenIssuer(
     IOptions<JwtOptions> options)
     : IRefreshTokenIssuer
 {
-    private readonly JwtOptions _options = options.Value;
+    private readonly JwtOptions _options =
+        options.Value;
 
-    public IssuedRefreshToken Create(Guid userId)
+    public IssuedRefreshToken Create(
+        Guid userId)
     {
-        var generatedToken = tokenGenerator.Generate();
+        var generatedToken =
+            tokenGenerator.Generate();
 
-        var createdAtUtc = clock.UtcNow;
+        var createdAtUtc =
+            clock.UtcNow;
 
         var expiresAtUtc =
             createdAtUtc.AddDays(
-                _options.RefreshTokenLifetimeDays);
+                _options
+                    .RefreshTokenLifetimeDays);
 
         return new IssuedRefreshToken(
             Guid.NewGuid(),
@@ -32,11 +37,13 @@ internal sealed class RefreshTokenIssuer(
             expiresAtUtc);
     }
 
-    public async Task<IssuedRefreshToken> IssueAsync(
-        Guid userId,
-        CancellationToken cancellationToken)
+    public async Task<IssuedRefreshToken>
+        IssueAsync(
+            Guid userId,
+            CancellationToken cancellationToken)
     {
-        var issuedToken = Create(userId);
+        var issuedToken =
+            Create(userId);
 
         var refreshTokenRecord =
             new RefreshTokenRecord(

@@ -27,27 +27,84 @@ public sealed class RegistrationTests(
                 "/api/v1/auth/register",
                 request);
 
-        if (response.StatusCode !=
-            HttpStatusCode.Created)
+        if (response.StatusCode != HttpStatusCode.Created)
         {
-            var error =
+            var responseBody =
                 await response.Content.ReadAsStringAsync();
 
+            var userCount =
+                await factory.QueryScalarAsync<int>(
+                    $"""
+                 SELECT COUNT(1)
+                 FROM [identity].Users
+                 WHERE Email = '{email}';
+                 """);
+
+            var activeUserCount =
+                await factory.QueryScalarAsync<int>(
+                    $"""
+                 SELECT COUNT(1)
+                 FROM [identity].Users
+                 WHERE Email = '{email}'
+                   AND IsActive = 1;
+                 """);
+
+            var roleCount =
+                await factory.QueryScalarAsync<int>(
+                    $"""
+                 SELECT COUNT(1)
+                 FROM [identity].Users AS u
+                 INNER JOIN [identity].UserRoles AS ur
+                     ON ur.UserId = u.UserId
+                 WHERE u.Email = '{email}';
+                 """);
+
+            var securityEventCount =
+                await factory.QueryScalarAsync<int>(
+                    $"""
+                 SELECT COUNT(1)
+                 FROM [identity].SecurityEvents AS se
+                 INNER JOIN [identity].Users AS u
+                     ON u.UserId = se.UserId
+                 WHERE u.Email = '{email}';
+                 """);
+
+            var refreshTokenCount =
+                await factory.QueryScalarAsync<int>(
+                    $"""
+                 SELECT COUNT(1)
+                 FROM [identity].RefreshTokens AS rt
+                 INNER JOIN [identity].Users AS u
+                     ON u.UserId = rt.UserId
+                 WHERE u.Email = '{email}';
+                 """);
+
             throw new Xunit.Sdk.XunitException(
-                $"Registration returned " +
-                $"{(int)response.StatusCode} " +
-                $"{response.StatusCode}.{Environment.NewLine}" +
-                $"Response:{Environment.NewLine}{error}");
+                $"""
+             Registration returned {(int)response.StatusCode}
+             {response.StatusCode}.
+
+             Response:
+             {responseBody}
+
+             Database diagnostic:
+             UserCount = {userCount}
+             ActiveUserCount = {activeUserCount}
+             RoleCount = {roleCount}
+             SecurityEventCount = {securityEventCount}
+             RefreshTokenCount = {refreshTokenCount}
+             """);
         }
 
         var result =
             await response.Content
-                .ReadFromJsonAsync<
-                    AuthenticationResponse>();
+                .ReadFromJsonAsync<AuthenticationResponse>();
 
         result.Should().NotBeNull();
 
-        result!.Email.Should().Be(email);
+        result!.Email
+            .Should()
+            .Be(email);
 
         result.Roles
             .Should()

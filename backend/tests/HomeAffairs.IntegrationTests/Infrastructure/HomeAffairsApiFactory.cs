@@ -1,6 +1,6 @@
-using HomeAffairs.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.SqlClient;
 using Testcontainers.MsSql;
 
 namespace HomeAffairs.IntegrationTests.Infrastructure;
@@ -10,7 +10,8 @@ public sealed class HomeAffairsApiFactory
       IAsyncLifetime
 {
     private readonly MsSqlContainer _sqlContainer =
-        new MsSqlBuilder()
+        new MsSqlBuilder(
+                "mcr.microsoft.com/mssql/server:2025-latest")
             .WithPassword(
                 "Integration-Test-Sql-2026!")
             .Build();
@@ -18,25 +19,29 @@ public sealed class HomeAffairsApiFactory
     public HttpClient Client { get; private set; } =
         null!;
 
+    public string DatabaseConnectionString =>
+        BuildDatabaseConnectionString();
+
     public async Task InitializeAsync()
     {
         await _sqlContainer.StartAsync();
 
         await InitializeDatabaseAsync();
 
-        var databaseName =
+        var actualDatabaseName =
             await QueryScalarAsync<string>(
                 "SELECT DB_NAME();");
 
-                if (!string.Equals(
-                        databaseName,
-                        "HomeAffairsDb",
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidOperationException(
-                        $"Integration database is '{databaseName}', " +
-                        "but HomeAffairsDb was expected.");
-                }
+        if (!string.Equals(
+                actualDatabaseName,
+                "HomeAffairsDb",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Integration database is " +
+                $"'{actualDatabaseName}', but " +
+                "'HomeAffairsDb' was expected.");
+        }
 
         Client = CreateClient();
     }
@@ -51,7 +56,7 @@ public sealed class HomeAffairsApiFactory
     }
 
     protected override void ConfigureWebHost(
-    IWebHostBuilder builder)
+        IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
 
@@ -73,7 +78,8 @@ public sealed class HomeAffairsApiFactory
 
         builder.UseSetting(
             "Jwt:SigningKey",
-            "HomeAffairs-Integration-Tests-2026-Signing-Key-Do-Not-Use-In-Production-123456");
+            "HomeAffairs-Integration-Tests-2026-" +
+            "Signing-Key-Do-Not-Use-In-Production-123456");
 
         builder.UseSetting(
             "Jwt:AccessTokenLifetimeMinutes",
@@ -92,12 +98,68 @@ public sealed class HomeAffairsApiFactory
             "15");
     }
 
+    public async Task ExecuteSqlAsync(
+        string sql,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection =
+            new SqlConnection(
+                BuildDatabaseConnectionString());
+
+        await connection.OpenAsync(
+            cancellationToken);
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = sql;
+        command.CommandTimeout = 60;
+
+        await command.ExecuteNonQueryAsync(
+            cancellationToken);
+    }
+
+    public async Task<T?> QueryScalarAsync<T>(
+        string sql,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection =
+            new SqlConnection(
+                BuildDatabaseConnectionString());
+
+        await connection.OpenAsync(
+            cancellationToken);
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = sql;
+        command.CommandTimeout = 60;
+
+        var result =
+            await command.ExecuteScalarAsync(
+                cancellationToken);
+
+        if (result is null || result is DBNull)
+        {
+            return default;
+        }
+
+        if (result is T typedResult)
+        {
+            return typedResult;
+        }
+
+        return (T)Convert.ChangeType(
+            result,
+            typeof(T));
+    }
+
     private string BuildDatabaseConnectionString()
     {
         var builder =
-            new Microsoft.Data.SqlClient
-                .SqlConnectionStringBuilder(
-                    _sqlContainer.GetConnectionString())
+            new SqlConnectionStringBuilder(
+                _sqlContainer.GetConnectionString())
             {
                 InitialCatalog = "HomeAffairsDb",
                 TrustServerCertificate = true
@@ -118,20 +180,32 @@ public sealed class HomeAffairsApiFactory
                 "001_database.sql"),
             databaseName: "master");
 
-        for (var script = 2; script <= 10; script++)
+        for (var scriptNumber = 2;
+             scriptNumber <= 10;
+             scriptNumber++)
         {
             var prefix =
-                script.ToString("000");
+                scriptNumber.ToString("000");
 
-            var file =
+            var matches =
                 Directory
                     .EnumerateFiles(
-                        Path.Combine(root, "database"),
+                        Path.Combine(
+                            root,
+                            "database"),
                         $"{prefix}_*.sql")
-                    .Single();
+                    .ToArray();
+
+            if (matches.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Expected exactly one database script " +
+                    $"matching {prefix}_*.sql, but found " +
+                    $"{matches.Length}.");
+            }
 
             await ExecuteScriptAsync(
-                file,
+                matches[0],
                 databaseName: "HomeAffairsDb");
         }
     }
@@ -141,16 +215,15 @@ public sealed class HomeAffairsApiFactory
         string databaseName)
     {
         var connectionStringBuilder =
-            new Microsoft.Data.SqlClient
-                .SqlConnectionStringBuilder(
-                    _sqlContainer.GetConnectionString())
+            new SqlConnectionStringBuilder(
+                _sqlContainer.GetConnectionString())
             {
                 InitialCatalog = databaseName,
                 TrustServerCertificate = true
             };
 
         await using var connection =
-            new Microsoft.Data.SqlClient.SqlConnection(
+            new SqlConnection(
                 connectionStringBuilder.ConnectionString);
 
         await connection.OpenAsync();
@@ -158,19 +231,13 @@ public sealed class HomeAffairsApiFactory
         var script =
             await File.ReadAllTextAsync(path);
 
-        /*
-            Our setup scripts use GO batch separators.
-            SqlCommand itself does not understand GO, so
-            execute each batch separately.
-        */
         var batches =
             System.Text.RegularExpressions.Regex.Split(
                 script,
                 @"^\s*GO\s*;?\s*$",
-                System.Text.RegularExpressions
-                    .RegexOptions.Multiline
-                | System.Text.RegularExpressions
-                    .RegexOptions.IgnoreCase);
+                System.Text.RegularExpressions.RegexOptions.Multiline
+                |
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         foreach (var batch in batches)
         {
@@ -197,10 +264,13 @@ public sealed class HomeAffairsApiFactory
 
         while (directory is not null)
         {
+            var databaseDirectory =
+                Path.Combine(
+                    directory.FullName,
+                    "database");
+
             if (Directory.Exists(
-                    Path.Combine(
-                        directory.FullName,
-                        "database")))
+                    databaseDirectory))
             {
                 return directory.FullName;
             }
@@ -209,6 +279,36 @@ public sealed class HomeAffairsApiFactory
         }
 
         throw new DirectoryNotFoundException(
-            "Could not locate the backend repository root.");
+            "Could not locate the backend " +
+            "repository root.");
+    }
+
+    public async Task<string?> QueryStringAsync(
+    string sql,
+    CancellationToken cancellationToken = default)
+    {
+        await using var connection =
+            new SqlConnection(
+                BuildDatabaseConnectionString());
+
+        await connection.OpenAsync(
+            cancellationToken);
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = sql;
+        command.CommandTimeout = 60;
+
+        var result =
+            await command.ExecuteScalarAsync(
+                cancellationToken);
+
+        if (result is null || result is DBNull)
+        {
+            return null;
+        }
+
+        return Convert.ToString(result);
     }
 }
