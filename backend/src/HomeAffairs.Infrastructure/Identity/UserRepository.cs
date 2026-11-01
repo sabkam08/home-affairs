@@ -93,7 +93,8 @@ internal sealed class UserRepository(
                 user.PasswordHash,
                 user.FirstName,
                 user.LastName,
-                user.CreatedAtUtc
+                CreatedAtUtc =
+                    user.CreatedAtUtc.UtcDateTime
             },
             commandType: CommandType.StoredProcedure,
             cancellationToken: cancellationToken);
