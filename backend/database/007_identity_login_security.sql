@@ -25,20 +25,54 @@ BEGIN
             1;
     END;
 
+    DECLARE @CurrentFailedLoginAttempts INT;
+    DECLARE @NextFailedLoginAttempts INT;
+    DECLARE @ShouldLock BIT;
+
+    /*
+        Lock the user row while the failed-login state is
+        calculated and updated.
+
+        This prevents concurrent failed authentication
+        attempts from losing increments.
+    */
+    SELECT
+        @CurrentFailedLoginAttempts =
+            FailedLoginAttempts
+    FROM [identity].Users
+        WITH (UPDLOCK, HOLDLOCK)
+    WHERE UserId = @UserId;
+
+    IF @CurrentFailedLoginAttempts IS NULL
+    BEGIN;
+        THROW 51012,
+            'The user account could not be found.',
+            1;
+    END;
+
+    SET @NextFailedLoginAttempts =
+        @CurrentFailedLoginAttempts + 1;
+
+    SET @ShouldLock =
+        CASE
+            WHEN @NextFailedLoginAttempts
+                >= @MaximumFailedLoginAttempts
+            THEN 1
+            ELSE 0
+        END;
+
     UPDATE [identity].Users
     SET
         FailedLoginAttempts =
             CASE
-                WHEN FailedLoginAttempts + 1
-                    >= @MaximumFailedLoginAttempts
+                WHEN @ShouldLock = 1
                 THEN 0
-                ELSE FailedLoginAttempts + 1
+                ELSE @NextFailedLoginAttempts
             END,
 
         LockedUntilUtc =
             CASE
-                WHEN FailedLoginAttempts + 1
-                    >= @MaximumFailedLoginAttempts
+                WHEN @ShouldLock = 1
                 THEN DATEADD(
                     MINUTE,
                     @LockoutDurationMinutes,
@@ -47,20 +81,17 @@ BEGIN
                 ELSE LockedUntilUtc
             END,
 
-        UpdatedAtUtc = @OccurredAtUtc
-    WHERE UserId = @UserId;
+        UpdatedAtUtc =
+            @OccurredAtUtc
 
-    IF @@ROWCOUNT = 0
-    BEGIN;
-        THROW 51012, 'The user account could not be found.', 1;
-    END;
+    WHERE UserId = @UserId;
 
     SELECT
-        UserId,
-        FailedLoginAttempts,
-        LockedUntilUtc
-    FROM [identity].Users
-    WHERE UserId = @UserId;
+        u.UserId,
+        u.FailedLoginAttempts,
+        u.LockedUntilUtc
+    FROM [identity].Users AS u
+    WHERE u.UserId = @UserId;
 END;
 GO
 
