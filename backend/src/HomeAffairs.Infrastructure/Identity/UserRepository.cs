@@ -11,45 +11,59 @@ internal sealed class UserRepository(
     : IUserRepository
 {
     public async Task<User?> GetByEmailAsync(
-        string normalizedEmail,
-        CancellationToken cancellationToken)
+    string normalizedEmail,
+    CancellationToken cancellationToken)
     {
         await using var connection =
             await connectionFactory.OpenConnectionAsync(
                 cancellationToken);
 
         var command = new CommandDefinition(
-            commandText: "identity.User_GetByEmail",
+            commandText:
+                "[identity].User_GetByEmail",
             parameters: new
             {
                 NormalizedEmail = normalizedEmail
             },
-            commandType: CommandType.StoredProcedure,
-            cancellationToken: cancellationToken);
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
 
-        return await connection.QuerySingleOrDefaultAsync<User>(
-            command);
+        var record =
+            await connection
+                .QuerySingleOrDefaultAsync<UserRecord>(
+                    command);
+
+        return record?.ToDomain();
     }
 
     public async Task<User?> GetByIdAsync(
-        Guid userId,
-        CancellationToken cancellationToken)
+    Guid userId,
+    CancellationToken cancellationToken)
     {
         await using var connection =
             await connectionFactory.OpenConnectionAsync(
                 cancellationToken);
 
         var command = new CommandDefinition(
-            commandText: "identity.User_GetById",
+            commandText:
+                "[identity].User_GetById",
             parameters: new
             {
                 UserId = userId
             },
-            commandType: CommandType.StoredProcedure,
-            cancellationToken: cancellationToken);
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
 
-        return await connection.QuerySingleOrDefaultAsync<User>(
-            command);
+        var record =
+            await connection
+                .QuerySingleOrDefaultAsync<UserRecord>(
+                    command);
+
+        return record?.ToDomain();
     }
 
     public async Task<IReadOnlyCollection<string>> GetRolesAsync(

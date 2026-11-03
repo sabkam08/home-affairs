@@ -1,6 +1,8 @@
 namespace HomeAffairs.IntegrationTests.Infrastructure;
 
-[CollectionDefinition(Name)]
+[CollectionDefinition(
+    Name,
+    DisableParallelization = true)]
 public sealed class IntegrationTestCollection
     : ICollectionFixture<HomeAffairsApiFactory>
 {

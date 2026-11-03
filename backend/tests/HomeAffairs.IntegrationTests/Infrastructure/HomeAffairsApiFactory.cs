@@ -140,7 +140,8 @@ public sealed class HomeAffairsApiFactory
             await command.ExecuteScalarAsync(
                 cancellationToken);
 
-        if (result is null || result is DBNull)
+        if (result is null ||
+            result is DBNull)
         {
             return default;
         }
@@ -153,6 +154,36 @@ public sealed class HomeAffairsApiFactory
         return (T)Convert.ChangeType(
             result,
             typeof(T));
+    }
+
+    public async Task<string?> QueryStringAsync(
+        string sql,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection =
+            new SqlConnection(
+                BuildDatabaseConnectionString());
+
+        await connection.OpenAsync(
+            cancellationToken);
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = sql;
+        command.CommandTimeout = 60;
+
+        var result =
+            await command.ExecuteScalarAsync(
+                cancellationToken);
+
+        if (result is null ||
+            result is DBNull)
+        {
+            return null;
+        }
+
+        return Convert.ToString(result);
     }
 
     private string BuildDatabaseConnectionString()
@@ -173,6 +204,10 @@ public sealed class HomeAffairsApiFactory
         var root =
             FindRepositoryRoot();
 
+        /*
+            Script 001 creates HomeAffairsDb,
+            therefore it executes against master.
+        */
         await ExecuteScriptAsync(
             Path.Combine(
                 root,
@@ -180,6 +215,13 @@ public sealed class HomeAffairsApiFactory
                 "001_database.sql"),
             databaseName: "master");
 
+        /*
+            Scripts 002 through 010 execute against
+            HomeAffairsDb.
+
+            Files beneath database/dev are intentionally
+            excluded from integration-test provisioning.
+        */
         for (var scriptNumber = 2;
              scriptNumber <= 10;
              scriptNumber++)
@@ -187,13 +229,17 @@ public sealed class HomeAffairsApiFactory
             var prefix =
                 scriptNumber.ToString("000");
 
+            var databaseDirectory =
+                Path.Combine(
+                    root,
+                    "database");
+
             var matches =
                 Directory
                     .EnumerateFiles(
-                        Path.Combine(
-                            root,
-                            "database"),
-                        $"{prefix}_*.sql")
+                        databaseDirectory,
+                        $"{prefix}_*.sql",
+                        SearchOption.TopDirectoryOnly)
                     .ToArray();
 
             if (matches.Length != 1)
@@ -231,6 +277,11 @@ public sealed class HomeAffairsApiFactory
         var script =
             await File.ReadAllTextAsync(path);
 
+        /*
+            GO is a SQL Server tooling batch separator.
+            SqlCommand does not interpret GO itself,
+            therefore each batch is executed separately.
+        */
         var batches =
             System.Text.RegularExpressions.Regex.Split(
                 script,
@@ -250,7 +301,16 @@ public sealed class HomeAffairsApiFactory
                 connection.CreateCommand();
 
             command.CommandText = batch;
-            command.CommandTimeout = 60;
+
+            /*
+                Schema provisioning can take longer under
+                Docker Desktop than normal application
+                database operations.
+
+                This timeout is restricted to integration
+                database setup.
+            */
+            command.CommandTimeout = 120;
 
             await command.ExecuteNonQueryAsync();
         }
@@ -281,34 +341,5 @@ public sealed class HomeAffairsApiFactory
         throw new DirectoryNotFoundException(
             "Could not locate the backend " +
             "repository root.");
-    }
-
-    public async Task<string?> QueryStringAsync(
-    string sql,
-    CancellationToken cancellationToken = default)
-    {
-        await using var connection =
-            new SqlConnection(
-                BuildDatabaseConnectionString());
-
-        await connection.OpenAsync(
-            cancellationToken);
-
-        await using var command =
-            connection.CreateCommand();
-
-        command.CommandText = sql;
-        command.CommandTimeout = 60;
-
-        var result =
-            await command.ExecuteScalarAsync(
-                cancellationToken);
-
-        if (result is null || result is DBNull)
-        {
-            return null;
-        }
-
-        return Convert.ToString(result);
     }
 }

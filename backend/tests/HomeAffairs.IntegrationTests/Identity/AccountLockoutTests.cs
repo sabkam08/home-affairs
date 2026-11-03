@@ -34,9 +34,16 @@ public sealed class AccountLockoutTests(
 
             response.StatusCode
                 .Should()
-                .Be(HttpStatusCode.Unauthorized);
+                .Be(
+                    HttpStatusCode.Unauthorized,
+                    $"failed login attempt {attempt} " +
+                    "must be rejected");
         }
 
+        /*
+            Verify the persisted lockout state immediately
+            after the fifth failed attempt.
+        */
         var lockedCount =
             await factory.QueryScalarAsync<int>(
                 $"""
@@ -47,12 +54,17 @@ public sealed class AccountLockoutTests(
                    AND LockedUntilUtc > SYSUTCDATETIME();
                  """);
 
-                lockedCount
-                    .Should()
-                    .Be(
-                        1,
-                        "the fifth failed login should lock the account");
+        lockedCount
+            .Should()
+            .Be(
+                1,
+                "the fifth failed login should " +
+                "temporarily lock the account");
 
+        /*
+            Even the correct password must be rejected while
+            the account remains locked.
+        */
         var correctLogin =
             await factory.Client.PostAsJsonAsync(
                 "/api/v1/auth/login",
@@ -62,20 +74,15 @@ public sealed class AccountLockoutTests(
 
         correctLogin.StatusCode
             .Should()
-            .Be(HttpStatusCode.Unauthorized);
+            .Be(
+                HttpStatusCode.Unauthorized,
+                "a correct password must not bypass " +
+                "an active account lockout");
 
-        var lockedCount =
-            await factory.QueryScalarAsync<int>(
-                $"""
-                 SELECT COUNT(1)
-                 FROM [identity].Users
-                 WHERE Email = '{email}'
-                   AND LockedUntilUtc > SYSUTCDATETIME();
-                 """);
-
-        lockedCount.Should().Be(1);
-
-        var eventCount =
+        /*
+            Verify the ACCOUNT_LOCKED security event.
+        */
+        var accountLockedEventCount =
             await factory.QueryScalarAsync<int>(
                 $"""
                  SELECT COUNT(1)
@@ -86,6 +93,10 @@ public sealed class AccountLockoutTests(
                    AND se.EventType = 'ACCOUNT_LOCKED';
                  """);
 
-        eventCount.Should().BeGreaterThanOrEqualTo(1);
+        accountLockedEventCount
+            .Should()
+            .BeGreaterThanOrEqualTo(
+                1,
+                "the account lockout must be audited");
     }
 }
