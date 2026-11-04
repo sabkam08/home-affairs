@@ -169,6 +169,17 @@ builder.Services.AddAuthorization(options =>
                 new PermissionRequirement(
                     Permissions.Audit.Read));
         });
+
+    options.AddPolicy(
+    AuthorizationPolicies.ProfileManageSelf,
+    policy =>
+    {
+        policy.RequireAuthenticatedUser();
+
+        policy.AddRequirements(
+            new PermissionRequirement(
+                Permissions.Profile.ManageSelf));
+    });
 });
 
 builder.Services.AddScoped<

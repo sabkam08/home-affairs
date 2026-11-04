@@ -1,4 +1,5 @@
 using FluentValidation;
+using HomeAffairs.Application.Citizens;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Domain.Common.Exceptions;
@@ -81,6 +82,29 @@ public sealed class GlobalExceptionHandler(
                     Title = "Refresh token reuse detected",
                     Detail =
                         "Authentication is required again."
+                },
+
+            CitizenProfileNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Citizen profile not found",
+                    Detail =
+                        "The citizen profile could not be found."
+                },
+
+            CitizenProfileAlreadyExistsException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Citizen profile already exists",
+                    Detail =
+                        "A citizen profile already exists " +
+                        "for the current user."
                 },
 
             DomainException domainException =>

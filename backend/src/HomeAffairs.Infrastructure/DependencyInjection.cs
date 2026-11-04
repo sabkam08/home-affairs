@@ -1,6 +1,8 @@
 using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Abstractions.Persistence;
 using HomeAffairs.Application.Abstractions.Time;
+using HomeAffairs.Application.Abstractions.Citizens;
+using HomeAffairs.Infrastructure.Citizens;
 using HomeAffairs.Infrastructure.Identity;
 using HomeAffairs.Infrastructure.Persistence;
 using HomeAffairs.Infrastructure.Time;
@@ -103,6 +105,10 @@ public static class DependencyInjection
         services.AddScoped<
             IUserPermissionRepository,
             UserPermissionRepository>();
+
+        services.AddScoped<
+            ICitizenRepository,
+            CitizenRepository>();
 
         services
             .AddHealthChecks()

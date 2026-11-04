@@ -5,6 +5,9 @@ public static class AuthorizationPolicies
     public const string ProfileReadSelf =
         "Permission:PROFILE.READ_SELF";
 
+    public const string ProfileManageSelf =
+        "Permission:PROFILE.MANAGE_SELF";
+
     public const string ApplicationCreate =
         "Permission:APPLICATION.CREATE";
 

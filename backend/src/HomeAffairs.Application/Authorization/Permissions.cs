@@ -6,6 +6,9 @@ public static class Permissions
     {
         public const string ReadSelf =
             "PROFILE.READ_SELF";
+
+        public const string ManageSelf =
+            "PROFILE.MANAGE_SELF";
     }
 
     public static class Applications
