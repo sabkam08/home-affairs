@@ -132,6 +132,29 @@ public sealed class GlobalExceptionHandler(
                         "This contact detail already exists."
                 },
 
+            ContactDetailNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Contact detail not found",
+                    Detail =
+                        "The contact detail could not be found."
+                },
+
+            ContactDetailConflictException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Contact detail conflict",
+                    Detail =
+                        "The contact detail was modified by " +
+                        "another request. Reload it and try again."
+                },
+
             DomainException domainException =>
                 new ProblemDetails
                 {

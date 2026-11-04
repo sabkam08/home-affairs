@@ -310,4 +310,131 @@ public sealed class CitizensController(
             updatedAtUtc,
             Convert.ToBase64String(rowVersion));
     }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpPut(
+    "me/contacts/{contactDetailId:guid}")]
+    [ProducesResponseType(
+    typeof(ContactDetailResponse),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(
+    typeof(ValidationProblemDetails),
+    StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status409Conflict)]
+    public async Task<
+    ActionResult<ContactDetailResponse>>
+    UpdateContactDetail(
+        Guid contactDetailId,
+        UpdateContactDetailRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var expectedRowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new UpdateContactDetailCommand(
+                    contactDetailId,
+                    request.ContactType,
+                    request.ContactValue,
+                    request.IsPrimary,
+                    expectedRowVersion!),
+                cancellationToken);
+
+        return Ok(
+            MapContactResponse(
+                result.ContactDetailId,
+                result.CitizenId,
+                result.ContactType,
+                result.ContactValue,
+                result.IsPrimary,
+                result.IsVerified,
+                result.IsActive,
+                result.CreatedAtUtc,
+                result.UpdatedAtUtc,
+                result.RowVersion));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpDelete(
+    "me/contacts/{contactDetailId:guid}")]
+    [ProducesResponseType(
+    StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+    typeof(ValidationProblemDetails),
+    StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status409Conflict)]
+    public async Task<IActionResult>
+    DeleteContactDetail(
+        Guid contactDetailId,
+        DeleteContactDetailRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var expectedRowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        await sender.Send(
+            new DeleteContactDetailCommand(
+                contactDetailId,
+                expectedRowVersion!),
+            cancellationToken);
+
+        return NoContent();
+    }
+
+
+
+    private static bool TryDecodeRowVersion(
+    string value,
+    out byte[]? rowVersion)
+    {
+        rowVersion = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            rowVersion =
+                Convert.FromBase64String(value);
+
+            return rowVersion.Length == 8;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
 }
