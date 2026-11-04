@@ -141,4 +141,156 @@ public sealed class CitizenProfileTests(
             .Should()
             .Be(HttpStatusCode.Conflict);
     }
+
+    [Fact]
+    public async Task Stale_row_version_should_return_conflict()
+    {
+        var identity =
+            await IdentityTestHelper
+                .RegisterCitizenAsync(factory);
+
+        var createRequest =
+            new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/citizens/me");
+
+        createRequest.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                identity.AccessToken);
+
+        createRequest.Content =
+            JsonContent.Create(
+                new CreateCitizenProfileRequest(
+                    null,
+                    "Concurrency",
+                    null,
+                    "Citizen",
+                    new DateOnly(
+                        1992,
+                        3,
+                        10),
+                    "F"));
+
+        var createResponse =
+            await factory.Client.SendAsync(
+                createRequest);
+
+        createResponse.EnsureSuccessStatusCode();
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<
+                    CitizenProfileResponse>();
+
+        created.Should().NotBeNull();
+
+        var staleRowVersion =
+            created!.RowVersion;
+
+        async Task<HttpResponseMessage> UpdateAsync(
+            string firstName,
+            string rowVersion)
+        {
+            var message =
+                new HttpRequestMessage(
+                    HttpMethod.Put,
+                    "/api/v1/citizens/me");
+
+            message.Headers.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    identity.AccessToken);
+
+            message.Content =
+                JsonContent.Create(
+                    new UpdateCitizenProfileRequest(
+                        null,
+                        firstName,
+                        null,
+                        "Citizen",
+                        new DateOnly(
+                            1992,
+                            3,
+                            10),
+                        "F",
+                        rowVersion));
+
+            return await factory.Client
+                .SendAsync(message);
+        }
+
+        var firstUpdate =
+            await UpdateAsync(
+                "FirstUpdate",
+                staleRowVersion);
+
+        firstUpdate.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var firstUpdated =
+            await firstUpdate.Content
+                .ReadFromJsonAsync<
+                    CitizenProfileResponse>();
+
+        firstUpdated.Should().NotBeNull();
+
+        firstUpdated!.RowVersion
+            .Should()
+            .NotBe(staleRowVersion);
+
+        /*
+            Simulate a second client that still holds the
+            RowVersion from before the first update.
+        */
+        var staleUpdate =
+            await UpdateAsync(
+                "StaleUpdate",
+                staleRowVersion);
+
+        staleUpdate.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Invalid_row_version_should_return_bad_request()
+    {
+        var identity =
+            await IdentityTestHelper
+                .RegisterCitizenAsync(factory);
+
+        var request =
+            new HttpRequestMessage(
+                HttpMethod.Put,
+                "/api/v1/citizens/me");
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                identity.AccessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new UpdateCitizenProfileRequest(
+                    null,
+                    "Invalid",
+                    null,
+                    "RowVersion",
+                    new DateOnly(
+                        1990,
+                        1,
+                        1),
+                    "M",
+                    "this-is-not-base64!!!"));
+
+        var response =
+            await factory.Client
+                .SendAsync(request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.BadRequest);
+    }
 }

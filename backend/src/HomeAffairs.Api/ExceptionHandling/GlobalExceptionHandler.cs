@@ -107,6 +107,19 @@ public sealed class GlobalExceptionHandler(
                         "for the current user."
                 },
 
+            CitizenProfileConcurrencyException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Citizen profile conflict",
+                    Detail =
+                        "The citizen profile was modified " +
+                        "by another request. Reload the " +
+                        "profile and try again."
+                },
+
             DomainException domainException =>
                 new ProblemDetails
                 {

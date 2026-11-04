@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using Microsoft.Data.SqlClient;
 using HomeAffairs.Application.Abstractions.Citizens;
 using HomeAffairs.Application.Abstractions.Persistence;
 using HomeAffairs.Domain.Citizens;
@@ -156,11 +157,19 @@ internal sealed class CitizenRepository(
             cancellationToken:
                 cancellationToken);
 
-        var record =
-            await connection
-                .QuerySingleAsync<CitizenRecord>(
-                    command);
+        try
+        {
+            var record =
+                await connection
+                    .QuerySingleAsync<CitizenRecord>(
+                        command);
 
-        return record.ToDomain();
+            return record.ToDomain();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52005)
+        {
+            throw new CitizenConcurrencyException();
+        }
     }
 }

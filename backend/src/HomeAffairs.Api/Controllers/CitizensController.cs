@@ -1,6 +1,7 @@
 using HomeAffairs.Api.Authorization;
 using HomeAffairs.Application.Citizens.CreateProfile;
 using HomeAffairs.Application.Citizens.GetMyProfile;
+using HomeAffairs.Application.Citizens.UpdateProfile;
 using HomeAffairs.Contracts.Citizens;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -124,5 +125,71 @@ public sealed class CitizensController(
             updatedAtUtc,
             Convert.ToBase64String(
                 rowVersion));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpPut("me")]
+    [ProducesResponseType(
+    typeof(CitizenProfileResponse),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(
+    typeof(ValidationProblemDetails),
+    StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status409Conflict)]
+    public async Task<
+    ActionResult<CitizenProfileResponse>>
+    UpdateMyProfile(
+        UpdateCitizenProfileRequest request,
+        CancellationToken cancellationToken)
+    {
+        byte[] expectedRowVersion;
+
+        try
+        {
+            expectedRowVersion =
+                Convert.FromBase64String(
+                    request.RowVersion);
+        }
+        catch (FormatException)
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new UpdateCitizenProfileCommand(
+                    request.SouthAfricanIdNumber,
+                    request.FirstName,
+                    request.MiddleNames,
+                    request.LastName,
+                    request.DateOfBirth,
+                    request.Sex,
+                    expectedRowVersion),
+                cancellationToken);
+
+        return Ok(
+            MapResponse(
+                result.CitizenId,
+                result.SouthAfricanIdNumber,
+                result.FirstName,
+                result.MiddleNames,
+                result.LastName,
+                result.DateOfBirth,
+                result.Sex,
+                result.IsActive,
+                result.CreatedAtUtc,
+                result.UpdatedAtUtc,
+                result.RowVersion));
     }
 }
