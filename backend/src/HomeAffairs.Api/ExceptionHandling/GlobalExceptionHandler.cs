@@ -1,5 +1,6 @@
 using FluentValidation;
 using HomeAffairs.Application.Citizens;
+using HomeAffairs.Application.Citizens.ContactDetails;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Domain.Common.Exceptions;
@@ -118,6 +119,17 @@ public sealed class GlobalExceptionHandler(
                         "The citizen profile was modified " +
                         "by another request. Reload the " +
                         "profile and try again."
+                },
+
+            ContactDetailAlreadyExistsException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Contact detail already exists",
+                    Detail =
+                        "This contact detail already exists."
                 },
 
             DomainException domainException =>

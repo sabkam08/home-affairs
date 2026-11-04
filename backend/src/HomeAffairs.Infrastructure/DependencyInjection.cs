@@ -110,6 +110,10 @@ public static class DependencyInjection
             ICitizenRepository,
             CitizenRepository>();
 
+        services.AddScoped<
+            IContactDetailRepository,
+            ContactDetailRepository>();
+
         services
             .AddHealthChecks()
             .AddCheck<SqlServerHealthCheck>(

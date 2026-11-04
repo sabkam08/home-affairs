@@ -2,6 +2,7 @@ using HomeAffairs.Api.Authorization;
 using HomeAffairs.Application.Citizens.CreateProfile;
 using HomeAffairs.Application.Citizens.GetMyProfile;
 using HomeAffairs.Application.Citizens.UpdateProfile;
+using HomeAffairs.Application.Citizens.ContactDetails;
 using HomeAffairs.Contracts.Citizens;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -191,5 +192,122 @@ public sealed class CitizensController(
                 result.CreatedAtUtc,
                 result.UpdatedAtUtc,
                 result.RowVersion));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpPost("me/contacts")]
+    [ProducesResponseType(
+    typeof(ContactDetailResponse),
+    StatusCodes.Status201Created)]
+    [ProducesResponseType(
+    typeof(ValidationProblemDetails),
+    StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status409Conflict)]
+    public async Task<
+    ActionResult<ContactDetailResponse>>
+    CreateContactDetail(
+        CreateContactDetailRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new CreateContactDetailCommand(
+                    request.ContactType,
+                    request.ContactValue,
+                    request.IsPrimary),
+                cancellationToken);
+
+        var response =
+            MapContactResponse(
+                result.ContactDetailId,
+                result.CitizenId,
+                result.ContactType,
+                result.ContactValue,
+                result.IsPrimary,
+                result.IsVerified,
+                result.IsActive,
+                result.CreatedAtUtc,
+                result.UpdatedAtUtc,
+                result.RowVersion);
+
+        return Created(
+            $"/api/v1/citizens/me/contacts/" +
+            $"{response.ContactDetailId}",
+            response);
+    }
+
+    [Authorize(
+        Policy =
+            AuthorizationPolicies.ProfileReadSelf)]
+    [HttpGet("me/contacts")]
+    [ProducesResponseType(
+        typeof(IReadOnlyCollection<
+            ContactDetailResponse>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status404NotFound)]
+    public async Task<
+        ActionResult<
+            IReadOnlyCollection<
+                ContactDetailResponse>>>
+        GetContactDetails(
+            CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetMyContactDetailsQuery(),
+                cancellationToken);
+
+        var response =
+            results
+                .Select(result =>
+                    MapContactResponse(
+                        result.ContactDetailId,
+                        result.CitizenId,
+                        result.ContactType,
+                        result.ContactValue,
+                        result.IsPrimary,
+                        result.IsVerified,
+                        result.IsActive,
+                        result.CreatedAtUtc,
+                        result.UpdatedAtUtc,
+                        result.RowVersion))
+                .ToArray();
+
+        return Ok(response);
+    }
+
+    private static ContactDetailResponse
+        MapContactResponse(
+            Guid contactDetailId,
+            Guid citizenId,
+            string contactType,
+            string contactValue,
+            bool isPrimary,
+            bool isVerified,
+            bool isActive,
+            DateTimeOffset createdAtUtc,
+            DateTimeOffset? updatedAtUtc,
+            byte[] rowVersion)
+    {
+        return new ContactDetailResponse(
+            contactDetailId,
+            citizenId,
+            contactType,
+            contactValue,
+            isPrimary,
+            isVerified,
+            isActive,
+            createdAtUtc,
+            updatedAtUtc,
+            Convert.ToBase64String(rowVersion));
     }
 }
