@@ -1,6 +1,7 @@
 using FluentValidation;
 using HomeAffairs.Application.Citizens;
 using HomeAffairs.Application.Citizens.ContactDetails;
+using HomeAffairs.Application.Citizens.Addresses;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Domain.Common.Exceptions;
@@ -153,6 +154,29 @@ public sealed class GlobalExceptionHandler(
                     Detail =
                         "The contact detail was modified by " +
                         "another request. Reload it and try again."
+                },
+
+            AddressNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Address not found",
+                    Detail =
+                        "The address could not be found."
+                },  
+
+            AddressConflictException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Address conflict",
+                    Detail =
+                        "The address was modified by another " +
+                        "request. Reload it and try again."
                 },
 
             DomainException domainException =>

@@ -114,6 +114,10 @@ public static class DependencyInjection
             IContactDetailRepository,
             ContactDetailRepository>();
 
+        services.AddScoped<
+            IAddressRepository,
+            AddressRepository>();
+
         services
             .AddHealthChecks()
             .AddCheck<SqlServerHealthCheck>(

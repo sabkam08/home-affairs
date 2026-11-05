@@ -3,6 +3,7 @@ using HomeAffairs.Application.Citizens.CreateProfile;
 using HomeAffairs.Application.Citizens.GetMyProfile;
 using HomeAffairs.Application.Citizens.UpdateProfile;
 using HomeAffairs.Application.Citizens.ContactDetails;
+using HomeAffairs.Application.Citizens.Addresses;
 using HomeAffairs.Contracts.Citizens;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -412,7 +413,154 @@ public sealed class CitizensController(
         return NoContent();
     }
 
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpPost("me/addresses")]
+    public async Task<ActionResult<AddressResponse>>
+    CreateAddress(
+        CreateAddressRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new CreateAddressCommand(
+                    request.AddressType,
+                    request.AddressLine1,
+                    request.AddressLine2,
+                    request.Suburb,
+                    request.CityOrTown,
+                    request.Province,
+                    request.PostalCode,
+                    request.CountryCode,
+                    request.IsPrimary),
+                cancellationToken);
 
+        var response =
+            MapAddressResponse(result);
+
+        return Created(
+            $"/api/v1/citizens/me/addresses/" +
+            $"{result.AddressId}",
+            response);
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileReadSelf)]
+    [HttpGet("me/addresses")]
+    public async Task<
+    ActionResult<IReadOnlyCollection<AddressResponse>>>
+    GetAddresses(
+        CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetMyAddressesQuery(),
+                cancellationToken);
+
+        return Ok(
+            results
+                .Select(MapAddressResponse)
+                .ToArray());
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpPut("me/addresses/{addressId:guid}")]
+    public async Task<ActionResult<AddressResponse>>
+    UpdateAddress(
+        Guid addressId,
+        UpdateAddressRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new UpdateAddressCommand(
+                    addressId,
+                    request.AddressType,
+                    request.AddressLine1,
+                    request.AddressLine2,
+                    request.Suburb,
+                    request.CityOrTown,
+                    request.Province,
+                    request.PostalCode,
+                    request.CountryCode,
+                    request.IsPrimary,
+                    rowVersion!),
+                cancellationToken);
+
+        return Ok(MapAddressResponse(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpDelete("me/addresses/{addressId:guid}")]
+    public async Task<IActionResult>
+    DeleteAddress(
+        Guid addressId,
+        DeleteAddressRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        await sender.Send(
+            new DeleteAddressCommand(
+                addressId,
+                rowVersion!),
+            cancellationToken);
+
+        return NoContent();
+    }
+
+
+
+
+
+    private static AddressResponse
+    MapAddressResponse(
+        CitizenAddressResult result)
+    {
+        return new AddressResponse(
+            result.AddressId,
+            result.CitizenId,
+            result.AddressType,
+            result.AddressLine1,
+            result.AddressLine2,
+            result.Suburb,
+            result.CityOrTown,
+            result.Province,
+            result.PostalCode,
+            result.CountryCode,
+            result.IsPrimary,
+            result.IsActive,
+            result.CreatedAtUtc,
+            result.UpdatedAtUtc,
+            Convert.ToBase64String(
+                result.RowVersion));
+    }
 
     private static bool TryDecodeRowVersion(
     string value,
