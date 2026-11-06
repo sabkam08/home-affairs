@@ -66,4 +66,58 @@ public sealed class CitizenTests
             .Be(
                 "Test Middle Name Citizen");
     }
+
+    [Fact]
+    public void Citizen_should_be_minor_on_day_before_18th_birthday()
+    {
+        var citizen = new Citizen
+        {
+            DateOfBirth =
+                new DateOnly(
+                    2008,
+                    11,
+                    7)
+        };
+
+        var onDate =
+            new DateOnly(
+                2026,
+                11,
+                6);
+
+        citizen.CalculateAge(onDate)
+            .Should()
+            .Be(17);
+
+        citizen.IsMinor(onDate)
+            .Should()
+            .BeTrue();
+    }
+
+    [Fact]
+    public void Citizen_should_be_adult_on_18th_birthday()
+    {
+        var citizen = new Citizen
+        {
+            DateOfBirth =
+                new DateOnly(
+                    2008,
+                    11,
+                    6)
+        };
+
+        var onDate =
+            new DateOnly(
+                2026,
+                11,
+                6);
+
+        citizen.CalculateAge(onDate)
+            .Should()
+            .Be(18);
+
+        citizen.IsMinor(onDate)
+            .Should()
+            .BeFalse();
+    }
 }

@@ -71,9 +71,9 @@ internal sealed class AddressRepository(
     }
 
     public async Task<CitizenAddress> CreateAsync(
-        CitizenAddress address,
-        Guid userId,
-        CancellationToken cancellationToken)
+    CitizenAddress address,
+    Guid userId,
+    CancellationToken cancellationToken)
     {
         await using var connection =
             await connectionFactory.OpenConnectionAsync(

@@ -2,6 +2,7 @@ using FluentValidation;
 using HomeAffairs.Application.Citizens;
 using HomeAffairs.Application.Citizens.ContactDetails;
 using HomeAffairs.Application.Citizens.Addresses;
+using HomeAffairs.Application.Citizens.Dependants;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Domain.Common.Exceptions;
@@ -177,6 +178,34 @@ public sealed class GlobalExceptionHandler(
                     Detail =
                         "The address was modified by another " +
                         "request. Reload it and try again."
+                },
+
+            DependantNotFoundException =>
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status404NotFound,
+                    Title = "Dependant not found",
+                    Detail =
+                        "The represented citizen could not be found."
+                },
+
+            RepresentativeMustBeAdultException =>
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Adult representative required",
+                    Detail =
+                        "The representative citizen must be " +
+                        "at least 18 years old."
+                },
+
+            SubjectMustBeMinorException =>
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Minor subject required",
+                    Detail =
+                        "The represented citizen must be under 18."
                 },
 
             DomainException domainException =>

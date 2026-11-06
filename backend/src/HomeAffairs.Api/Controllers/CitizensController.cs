@@ -4,6 +4,7 @@ using HomeAffairs.Application.Citizens.GetMyProfile;
 using HomeAffairs.Application.Citizens.UpdateProfile;
 using HomeAffairs.Application.Citizens.ContactDetails;
 using HomeAffairs.Application.Citizens.Addresses;
+using HomeAffairs.Application.Citizens.Dependants;
 using HomeAffairs.Contracts.Citizens;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -584,5 +585,100 @@ public sealed class CitizensController(
         {
             return false;
         }
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpPost("me/dependants")]
+    public async Task<ActionResult<DependantResponse>>
+    CreateDependant(
+        CreateDependantRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new CreateDependantCommand(
+                    request.SouthAfricanIdNumber,
+                    request.FirstName,
+                    request.MiddleNames,
+                    request.LastName,
+                    request.DateOfBirth,
+                    request.Sex,
+                    request.RelationshipType),
+                cancellationToken);
+
+        var response =
+            MapDependantResponse(result);
+
+        return Created(
+            $"/api/v1/citizens/me/dependants/" +
+            $"{result.SubjectCitizenId}",
+            response);
+    }
+
+    [Authorize(
+        Policy =
+            AuthorizationPolicies.ProfileReadSelf)]
+    [HttpGet("me/dependants")]
+    public async Task<
+        ActionResult<
+            IReadOnlyCollection<DependantResponse>>>
+        GetDependants(
+            CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetMyDependantsQuery(),
+                cancellationToken);
+
+        return Ok(
+            results
+                .Select(MapDependantResponse)
+                .ToArray());
+    }
+
+    [Authorize(
+        Policy =
+            AuthorizationPolicies.ProfileReadSelf)]
+    [HttpGet(
+        "me/dependants/{subjectCitizenId:guid}")]
+    public async Task<ActionResult<DependantResponse>>
+        GetDependant(
+            Guid subjectCitizenId,
+            CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new GetMyDependantQuery(
+                    subjectCitizenId),
+                cancellationToken);
+
+        return Ok(
+            MapDependantResponse(result));
+    }
+
+    private static DependantResponse
+        MapDependantResponse(
+            DependantResult result)
+    {
+        return new DependantResponse(
+            result.CitizenRelationshipId,
+            result.RepresentativeCitizenId,
+            result.SubjectCitizenId,
+            result.RelationshipType,
+            result.SouthAfricanIdNumber,
+            result.FirstName,
+            result.MiddleNames,
+            result.LastName,
+            result.DateOfBirth,
+            result.Sex,
+            result.IsMinor,
+            result.IsActive,
+            result.CreatedAtUtc,
+            Convert.ToBase64String(
+                result.RelationshipRowVersion),
+            Convert.ToBase64String(
+                result.SubjectRowVersion));
     }
 }
