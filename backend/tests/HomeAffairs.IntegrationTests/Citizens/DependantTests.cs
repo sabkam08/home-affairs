@@ -518,4 +518,285 @@ public sealed class DependantTests(
             "F",
             relationshipType);
     }
+
+    [Fact]
+    public async Task Adult_should_update_relationship_type()
+    {
+        var adult =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateDependantAsync(
+                adult.AccessToken,
+                CreateMinorRequest(
+                    "BIOLOGICAL_PARENT"));
+
+        var dependant =
+            await createResponse.Content
+                .ReadFromJsonAsync<DependantResponse>();
+
+        dependant.Should().NotBeNull();
+
+        var updateResponse =
+            await UpdateRelationshipAsync(
+                adult.AccessToken,
+                dependant!.SubjectCitizenId,
+                new UpdateDependantRelationshipRequest(
+                    "LEGAL_GUARDIAN",
+                    dependant.RelationshipRowVersion));
+
+        updateResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var updated =
+            await updateResponse.Content
+                .ReadFromJsonAsync<DependantResponse>();
+
+        updated.Should().NotBeNull();
+
+        updated!.RelationshipType
+            .Should()
+            .Be("LEGAL_GUARDIAN");
+
+        updated.RelationshipRowVersion
+            .Should()
+            .NotBe(
+                dependant.RelationshipRowVersion);
+    }
+
+    [Fact]
+    public async Task Stale_relationship_update_should_return_conflict()
+    {
+        var adult =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateDependantAsync(
+                adult.AccessToken,
+                CreateMinorRequest(
+                    "BIOLOGICAL_PARENT"));
+
+        var dependant =
+            await createResponse.Content
+                .ReadFromJsonAsync<DependantResponse>();
+
+        dependant.Should().NotBeNull();
+
+        var staleRowVersion =
+            dependant!.RelationshipRowVersion;
+
+        var firstUpdate =
+            await UpdateRelationshipAsync(
+                adult.AccessToken,
+                dependant.SubjectCitizenId,
+                new UpdateDependantRelationshipRequest(
+                    "LEGAL_GUARDIAN",
+                    staleRowVersion));
+
+        firstUpdate.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var staleUpdate =
+            await UpdateRelationshipAsync(
+                adult.AccessToken,
+                dependant.SubjectCitizenId,
+                new UpdateDependantRelationshipRequest(
+                    "ADOPTIVE_PARENT",
+                    staleRowVersion));
+
+        staleUpdate.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Adult_should_deactivate_relationship_without_deleting_subject()
+    {
+        var adult =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateDependantAsync(
+                adult.AccessToken,
+                CreateMinorRequest(
+                    "LEGAL_GUARDIAN"));
+
+        var dependant =
+            await createResponse.Content
+                .ReadFromJsonAsync<DependantResponse>();
+
+        dependant.Should().NotBeNull();
+
+        var deleteResponse =
+            await DeactivateRelationshipAsync(
+                adult.AccessToken,
+                dependant!.SubjectCitizenId,
+                dependant.RelationshipRowVersion);
+
+        deleteResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.NoContent);
+
+        using var getRequest =
+            IdentityTestHelper
+                .CreateAuthenticatedRequest(
+                    HttpMethod.Get,
+                    $"/api/v1/citizens/me/dependants/" +
+                    $"{dependant.SubjectCitizenId}",
+                    adult.AccessToken);
+
+        var getResponse =
+            await factory.Client.SendAsync(
+                getRequest);
+
+        getResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.NotFound);
+
+        var inactiveRelationshipCount =
+            await factory.QueryScalarAsync<int>(
+                $"""
+             SELECT COUNT(1)
+             FROM [citizens].CitizenRelationships
+             WHERE SubjectCitizenId =
+                 '{dependant.SubjectCitizenId}'
+               AND IsActive = 0;
+             """);
+
+        inactiveRelationshipCount
+            .Should()
+            .Be(1);
+
+        var activeSubjectCount =
+            await factory.QueryScalarAsync<int>(
+                $"""
+             SELECT COUNT(1)
+             FROM [citizens].Citizens
+             WHERE CitizenId =
+                 '{dependant.SubjectCitizenId}'
+               AND IsActive = 1
+               AND UserId IS NULL;
+             """);
+
+        activeSubjectCount
+            .Should()
+            .Be(1);
+    }
+
+    [Fact]
+    public async Task Other_citizen_should_not_update_relationship()
+    {
+        var owner =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateDependantAsync(
+                owner.AccessToken,
+                CreateMinorRequest(
+                    "BIOLOGICAL_PARENT"));
+
+        var dependant =
+            await createResponse.Content
+                .ReadFromJsonAsync<DependantResponse>();
+
+        dependant.Should().NotBeNull();
+
+        var otherAdult =
+            await CreateAdultCitizenAsync();
+
+        var response =
+            await UpdateRelationshipAsync(
+                otherAdult.AccessToken,
+                dependant!.SubjectCitizenId,
+                new UpdateDependantRelationshipRequest(
+                    "LEGAL_GUARDIAN",
+                    dependant.RelationshipRowVersion));
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Invalid_relationship_row_version_should_return_bad_request()
+    {
+        var adult =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateDependantAsync(
+                adult.AccessToken,
+                CreateMinorRequest(
+                    "BIOLOGICAL_PARENT"));
+
+        var dependant =
+            await createResponse.Content
+                .ReadFromJsonAsync<DependantResponse>();
+
+        dependant.Should().NotBeNull();
+
+        var response =
+            await UpdateRelationshipAsync(
+                adult.AccessToken,
+                dependant!.SubjectCitizenId,
+                new UpdateDependantRelationshipRequest(
+                    "LEGAL_GUARDIAN",
+                    "not-valid-base64!!!"));
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.BadRequest);
+    }
+
+    private async Task<HttpResponseMessage>
+    UpdateRelationshipAsync(
+        string accessToken,
+        Guid subjectCitizenId,
+        UpdateDependantRelationshipRequest update)
+    {
+        var request =
+            new HttpRequestMessage(
+                HttpMethod.Put,
+                $"/api/v1/citizens/me/dependants/" +
+                $"{subjectCitizenId}/relationship");
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(update);
+
+        return await factory.Client.SendAsync(
+            request);
+    }
+
+    private async Task<HttpResponseMessage>
+        DeactivateRelationshipAsync(
+            string accessToken,
+            Guid subjectCitizenId,
+            string rowVersion)
+    {
+        var request =
+            new HttpRequestMessage(
+                HttpMethod.Delete,
+                $"/api/v1/citizens/me/dependants/" +
+                $"{subjectCitizenId}/relationship");
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new DeleteDependantRelationshipRequest(
+                    rowVersion));
+
+        return await factory.Client.SendAsync(
+            request);
+    }
 }

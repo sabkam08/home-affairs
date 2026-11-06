@@ -208,6 +208,18 @@ public sealed class GlobalExceptionHandler(
                         "The represented citizen must be under 18."
                 },
 
+            DependantRelationshipConflictException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Dependant relationship conflict",
+                    Detail =
+                        "The dependant relationship was modified " +
+                        "by another request. Reload it and try again."
+                },
+
             DomainException domainException =>
                 new ProblemDetails
                 {

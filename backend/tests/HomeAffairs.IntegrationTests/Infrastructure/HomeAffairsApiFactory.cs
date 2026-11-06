@@ -223,7 +223,7 @@ public sealed class HomeAffairsApiFactory
             excluded from integration-test provisioning.
         */
         for (var scriptNumber = 2;
-             scriptNumber <= 17;
+             scriptNumber <= 18;
              scriptNumber++)
         {
             var prefix =

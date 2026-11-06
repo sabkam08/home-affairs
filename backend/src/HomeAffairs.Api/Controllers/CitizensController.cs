@@ -536,57 +536,6 @@ public sealed class CitizensController(
         return NoContent();
     }
 
-
-
-
-
-    private static AddressResponse
-    MapAddressResponse(
-        CitizenAddressResult result)
-    {
-        return new AddressResponse(
-            result.AddressId,
-            result.CitizenId,
-            result.AddressType,
-            result.AddressLine1,
-            result.AddressLine2,
-            result.Suburb,
-            result.CityOrTown,
-            result.Province,
-            result.PostalCode,
-            result.CountryCode,
-            result.IsPrimary,
-            result.IsActive,
-            result.CreatedAtUtc,
-            result.UpdatedAtUtc,
-            Convert.ToBase64String(
-                result.RowVersion));
-    }
-
-    private static bool TryDecodeRowVersion(
-    string value,
-    out byte[]? rowVersion)
-    {
-        rowVersion = null;
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        try
-        {
-            rowVersion =
-                Convert.FromBase64String(value);
-
-            return rowVersion.Length == 8;
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-    }
-
     [Authorize(
     Policy =
         AuthorizationPolicies.ProfileManageSelf)]
@@ -680,5 +629,142 @@ public sealed class CitizensController(
                 result.RelationshipRowVersion),
             Convert.ToBase64String(
                 result.SubjectRowVersion));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpPut(
+    "me/dependants/{subjectCitizenId:guid}/relationship")]
+    [ProducesResponseType(
+    typeof(DependantResponse),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(
+    typeof(ValidationProblemDetails),
+    StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DependantResponse>>
+    UpdateDependantRelationship(
+        Guid subjectCitizenId,
+        UpdateDependantRelationshipRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new UpdateDependantRelationshipCommand(
+                    subjectCitizenId,
+                    request.RelationshipType,
+                    rowVersion!),
+                cancellationToken);
+
+        return Ok(
+            MapDependantResponse(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ProfileManageSelf)]
+    [HttpDelete(
+    "me/dependants/{subjectCitizenId:guid}/relationship")]
+    [ProducesResponseType(
+    StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+    typeof(ValidationProblemDetails),
+    StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+    typeof(ProblemDetails),
+    StatusCodes.Status409Conflict)]
+    public async Task<IActionResult>
+    DeactivateDependantRelationship(
+        Guid subjectCitizenId,
+        DeleteDependantRelationshipRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        await sender.Send(
+            new DeactivateDependantRelationshipCommand(
+                subjectCitizenId,
+                rowVersion!),
+            cancellationToken);
+
+        return NoContent();
+    }
+
+
+
+    private static AddressResponse
+    MapAddressResponse(
+        CitizenAddressResult result)
+    {
+        return new AddressResponse(
+            result.AddressId,
+            result.CitizenId,
+            result.AddressType,
+            result.AddressLine1,
+            result.AddressLine2,
+            result.Suburb,
+            result.CityOrTown,
+            result.Province,
+            result.PostalCode,
+            result.CountryCode,
+            result.IsPrimary,
+            result.IsActive,
+            result.CreatedAtUtc,
+            result.UpdatedAtUtc,
+            Convert.ToBase64String(
+                result.RowVersion));
+    }
+
+    private static bool TryDecodeRowVersion(
+    string value,
+    out byte[]? rowVersion)
+    {
+        rowVersion = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            rowVersion =
+                Convert.FromBase64String(value);
+
+            return rowVersion.Length == 8;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }

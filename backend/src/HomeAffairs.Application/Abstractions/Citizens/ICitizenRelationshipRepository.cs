@@ -22,4 +22,20 @@ public interface ICitizenRelationshipRepository
             Guid subjectCitizenId,
             Guid representativeUserId,
             CancellationToken cancellationToken);
+
+    Task<CitizenRelationship>
+        UpdateRelationshipAsync(
+            Guid subjectCitizenId,
+            Guid representativeUserId,
+            string relationshipType,
+            byte[] expectedRowVersion,
+            DateTimeOffset updatedAtUtc,
+            CancellationToken cancellationToken);
+
+    Task DeactivateRelationshipAsync(
+        Guid subjectCitizenId,
+        Guid representativeUserId,
+        byte[] expectedRowVersion,
+        DateTimeOffset deactivatedAtUtc,
+        CancellationToken cancellationToken);
 }
