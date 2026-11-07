@@ -5,6 +5,7 @@ using HomeAffairs.Application.Citizens.Addresses;
 using HomeAffairs.Application.Citizens.Dependants;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Refresh;
+using HomeAffairs.Application.Applications;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -218,6 +219,39 @@ public sealed class GlobalExceptionHandler(
                     Detail =
                         "The dependant relationship was modified " +
                         "by another request. Reload it and try again."
+                },
+
+            ApplicationNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Application not found",
+                    Detail =
+                        "The application could not be found."
+                },
+
+            ApplicationSubjectNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Subject citizen not found",
+                    Detail =
+                        "The subject citizen could not be found."
+                },
+
+            ApplicationSubjectAccessDeniedException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Subject citizen not found",
+                    Detail =
+                        "The subject citizen could not be found."
                 },
 
             DomainException domainException =>

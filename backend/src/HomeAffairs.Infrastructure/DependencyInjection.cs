@@ -2,6 +2,8 @@ using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Abstractions.Persistence;
 using HomeAffairs.Application.Abstractions.Time;
 using HomeAffairs.Application.Abstractions.Citizens;
+using HomeAffairs.Application.Abstractions.Applications;
+using HomeAffairs.Infrastructure.Applications;
 using HomeAffairs.Infrastructure.Citizens;
 using HomeAffairs.Infrastructure.Identity;
 using HomeAffairs.Infrastructure.Persistence;
@@ -121,6 +123,14 @@ public static class DependencyInjection
         services.AddScoped<
             ICitizenRelationshipRepository,
             CitizenRelationshipRepository>();
+
+        services.AddScoped<
+            IApplicationRepository,
+            ApplicationRepository>();
+
+        services.AddSingleton<
+            IApplicationNumberGenerator,
+            ApplicationNumberGenerator>();
 
         services
             .AddHealthChecks()
