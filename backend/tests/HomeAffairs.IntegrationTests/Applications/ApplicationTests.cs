@@ -422,4 +422,407 @@ public sealed class ApplicationTests(
 
         return request;
     }
+
+    [Fact]
+    public async Task Applicant_should_update_draft()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var updateResponse =
+            await UpdateApplicationAsync(
+                citizen.AccessToken,
+                created!.ApplicationId,
+                new UpdateApplicationRequest(
+                    "SMART_ID_REPLACEMENT_DAMAGED",
+                    null,
+                    created.RowVersion));
+
+        updateResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var updated =
+            await updateResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        updated.Should().NotBeNull();
+
+        updated!.ApplicationType
+            .Should()
+            .Be("SMART_ID_REPLACEMENT_DAMAGED");
+
+        updated.Status
+            .Should()
+            .Be("DRAFT");
+
+        updated.RowVersion
+            .Should()
+            .NotBe(created.RowVersion);
+    }
+
+    [Fact]
+    public async Task Stale_draft_update_should_return_conflict()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var originalRowVersion =
+            created!.RowVersion;
+
+        var first =
+            await UpdateApplicationAsync(
+                citizen.AccessToken,
+                created.ApplicationId,
+                new UpdateApplicationRequest(
+                    "SMART_ID_REPLACEMENT_DAMAGED",
+                    null,
+                    originalRowVersion));
+
+        first.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var stale =
+            await UpdateApplicationAsync(
+                citizen.AccessToken,
+                created.ApplicationId,
+                new UpdateApplicationRequest(
+                    "SMART_ID_REPLACEMENT_LOST",
+                    null,
+                    originalRowVersion));
+
+        stale.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Applicant_should_submit_draft()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_NEW",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var response =
+            await SubmitApplicationAsync(
+                citizen.AccessToken,
+                created!.ApplicationId,
+                created.RowVersion);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var submitted =
+            await response.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        submitted.Should().NotBeNull();
+
+        submitted!.Status
+            .Should()
+            .Be("SUBMITTED");
+
+        submitted.SubmittedAtUtc
+            .Should()
+            .NotBeNull();
+
+        submitted.RowVersion
+            .Should()
+            .NotBe(created.RowVersion);
+    }
+
+    [Fact]
+    public async Task Submitted_application_should_not_be_editable_as_draft()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_NEW",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var submitResponse =
+            await SubmitApplicationAsync(
+                citizen.AccessToken,
+                created!.ApplicationId,
+                created.RowVersion);
+
+        var submitted =
+            await submitResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        submitted.Should().NotBeNull();
+
+        var update =
+            await UpdateApplicationAsync(
+                citizen.AccessToken,
+                submitted!.ApplicationId,
+                new UpdateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null,
+                    submitted.RowVersion));
+
+        update.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Applicant_should_cancel_draft()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var response =
+            await CancelApplicationAsync(
+                citizen.AccessToken,
+                created!.ApplicationId,
+                created.RowVersion,
+                "No longer required.");
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var cancelled =
+            await response.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        cancelled.Should().NotBeNull();
+
+        cancelled!.Status
+            .Should()
+            .Be("CANCELLED");
+    }
+
+    [Fact]
+    public async Task Submission_should_write_status_history()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_NEW",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        await SubmitApplicationAsync(
+            citizen.AccessToken,
+            created!.ApplicationId,
+            created.RowVersion);
+
+        using var historyRequest =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                $"/api/v1/applications/" +
+                $"{created.ApplicationId}/history",
+                citizen.AccessToken);
+
+        var response =
+            await factory.Client.SendAsync(
+                historyRequest);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var history =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ApplicationStatusHistoryResponse[]>();
+
+        history.Should().NotBeNull();
+
+        history!
+            .Should()
+            .HaveCount(2);
+
+        history[0].FromStatus
+            .Should()
+            .BeNull();
+
+        history[0].ToStatus
+            .Should()
+            .Be("DRAFT");
+
+        history[1].FromStatus
+            .Should()
+            .Be("DRAFT");
+
+        history[1].ToStatus
+            .Should()
+            .Be("SUBMITTED");
+    }
+
+    [Fact]
+    public async Task Other_citizen_should_not_update_application()
+    {
+        var owner =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                owner.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null));
+
+        var application =
+            await createResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        application.Should().NotBeNull();
+
+        var other =
+            await CreateAdultCitizenAsync();
+
+        var response =
+            await UpdateApplicationAsync(
+                other.AccessToken,
+                application!.ApplicationId,
+                new UpdateApplicationRequest(
+                    "SMART_ID_REPLACEMENT_LOST",
+                    null,
+                    application.RowVersion));
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.NotFound);
+    }
+
+    private async Task<HttpResponseMessage>
+    UpdateApplicationAsync(
+        string accessToken,
+        Guid applicationId,
+        UpdateApplicationRequest update)
+    {
+        var request =
+            AuthenticatedRequest(
+                HttpMethod.Put,
+                $"/api/v1/applications/" +
+                $"{applicationId}",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(update);
+
+        return await factory.Client.SendAsync(
+            request);
+    }
+
+    private async Task<HttpResponseMessage>
+        SubmitApplicationAsync(
+            string accessToken,
+            Guid applicationId,
+            string rowVersion)
+    {
+        var request =
+            AuthenticatedRequest(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/submit",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new ApplicationActionRequest(
+                    rowVersion));
+
+        return await factory.Client.SendAsync(
+            request);
+    }
+
+    private async Task<HttpResponseMessage>
+        CancelApplicationAsync(
+            string accessToken,
+            Guid applicationId,
+            string rowVersion,
+            string? reason)
+    {
+        var request =
+            AuthenticatedRequest(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/cancel",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new CancelApplicationRequest(
+                    rowVersion,
+                    reason));
+
+        return await factory.Client.SendAsync(
+            request);
+    }
 }

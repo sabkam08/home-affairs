@@ -254,6 +254,30 @@ public sealed class GlobalExceptionHandler(
                         "The subject citizen could not be found."
                 },
 
+            ApplicationConflictException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Application conflict",
+                    Detail =
+                        "The application was modified by another " +
+                        "request. Reload it and try again."
+                },
+
+            InvalidApplicationStateException
+                invalidStateException =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status409Conflict,
+                        Title =
+                            "Invalid application state",
+                        Detail =
+                            invalidStateException.Message
+                    },
+
             DomainException domainException =>
                 new ProblemDetails
                 {

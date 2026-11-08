@@ -19,4 +19,34 @@ public interface IApplicationRepository
         GetMineAsync(
             Guid userId,
             CancellationToken cancellationToken);
+
+    Task<HomeAffairsApplication> UpdateDraftAsync(
+        Guid applicationId,
+        Guid userId,
+        string applicationType,
+        Guid subjectCitizenId,
+        byte[] expectedRowVersion,
+        DateTimeOffset updatedAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<HomeAffairsApplication> SubmitAsync(
+        Guid applicationId,
+        Guid userId,
+        byte[] expectedRowVersion,
+        DateTimeOffset submittedAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<HomeAffairsApplication> CancelDraftAsync(
+        Guid applicationId,
+        Guid userId,
+        byte[] expectedRowVersion,
+        string? reason,
+        DateTimeOffset cancelledAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<ApplicationStatusHistory>>
+        GetStatusHistoryForApplicantAsync(
+            Guid applicationId,
+            Guid userId,
+            CancellationToken cancellationToken);
 }

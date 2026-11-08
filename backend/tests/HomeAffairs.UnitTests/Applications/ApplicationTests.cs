@@ -64,4 +64,34 @@ public sealed class ApplicationTests
             .Should()
             .BeTrue();
     }
+
+    [Fact]
+    public void Submitted_application_should_not_be_draft()
+    {
+        var application =
+            new HomeAffairsApplication
+            {
+                Status =
+                    ApplicationStatuses.Submitted
+            };
+
+        application.IsDraft
+            .Should()
+            .BeFalse();
+    }
+
+    [Fact]
+    public void Cancelled_application_should_not_be_draft()
+    {
+        var application =
+            new HomeAffairsApplication
+            {
+                Status =
+                    ApplicationStatuses.Cancelled
+            };
+
+        application.IsDraft
+            .Should()
+            .BeFalse();
+    }
 }
