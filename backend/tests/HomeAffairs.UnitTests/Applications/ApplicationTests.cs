@@ -103,10 +103,10 @@ public sealed class ApplicationTests
             new HomeAffairs.Application
                 .Abstractions.Applications
                 .ApplicationSearchPage(
-                    [],
-                    totalCount: 41,
-                    pageNumber: 1,
-                    pageSize: 20);
+                    Items: [],
+                    TotalCount: 41,
+                    PageNumber: 1,
+                    PageSize: 20);
 
         page.TotalPages
             .Should()
@@ -120,10 +120,10 @@ public sealed class ApplicationTests
             new HomeAffairs.Application
                 .Abstractions.Applications
                 .ApplicationSearchPage(
-                    [],
-                    totalCount: 0,
-                    pageNumber: 1,
-                    pageSize: 20);
+                    Items: [],
+                    TotalCount: 0,
+                    PageNumber: 1,
+                    PageSize: 20);
 
         page.TotalPages
             .Should()
@@ -137,10 +137,10 @@ public sealed class ApplicationTests
             new HomeAffairs.Application
                 .Abstractions.Applications
                 .ApplicationSearchPage(
-                    [],
-                    totalCount: 40,
-                    pageNumber: 1,
-                    pageSize: 20);
+                    Items: [],
+                    TotalCount: 40,
+                    PageNumber: 1,
+                    PageSize: 20);
 
         page.TotalPages
             .Should()
