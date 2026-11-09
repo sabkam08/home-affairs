@@ -49,4 +49,20 @@ public interface IApplicationRepository
             Guid applicationId,
             Guid userId,
             CancellationToken cancellationToken);
+
+    Task<HomeAffairsApplication?>
+    GetAssignedByIdAsync(
+        Guid applicationId,
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    Task<HomeAffairsApplication>
+        TransitionByAssignedPractitionerAsync(
+            Guid applicationId,
+            Guid userId,
+            string targetStatus,
+            string? reason,
+            byte[] expectedRowVersion,
+            DateTimeOffset changedAtUtc,
+            CancellationToken cancellationToken);
 }

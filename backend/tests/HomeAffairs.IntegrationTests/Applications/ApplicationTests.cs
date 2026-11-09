@@ -981,6 +981,224 @@ public sealed class ApplicationTests(
                 application.ApplicationId);
     }
 
+    [Fact]
+    public async Task Assigned_practitioner_should_request_information()
+    {
+        var setup =
+            await CreateAssignedApplicationAsync();
+
+        var response =
+            await ProcessAsync(
+                setup.Practitioner.AccessToken,
+                setup.Application.ApplicationId,
+                "request-information",
+                setup.Application.RowVersion,
+                "Additional evidence required.");
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var updated =
+            await response.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        updated.Should().NotBeNull();
+
+        updated!.Status
+            .Should()
+            .Be("AWAITING_INFORMATION");
+
+        updated.RowVersion
+            .Should()
+            .NotBe(setup.Application.RowVersion);
+    }
+
+    [Fact]
+    public async Task Assigned_practitioner_should_resume_after_information_received()
+    {
+        var setup =
+            await CreateAssignedApplicationAsync();
+
+        var requestInfo =
+            await ProcessAsync(
+                setup.Practitioner.AccessToken,
+                setup.Application.ApplicationId,
+                "request-information",
+                setup.Application.RowVersion,
+                "Additional evidence required.");
+
+        var awaiting =
+            await requestInfo.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        awaiting.Should().NotBeNull();
+
+        var resume =
+            await ProcessAsync(
+                setup.Practitioner.AccessToken,
+                awaiting!.ApplicationId,
+                "resume-processing",
+                awaiting.RowVersion,
+                "Evidence received.");
+
+        resume.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var resumed =
+            await resume.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        resumed.Should().NotBeNull();
+
+        resumed!.Status
+            .Should()
+            .Be("IN_PROGRESS");
+    }
+
+    [Fact]
+    public async Task Assigned_practitioner_should_send_for_approval()
+    {
+        var setup =
+            await CreateAssignedApplicationAsync();
+
+        var response =
+            await ProcessAsync(
+                setup.Practitioner.AccessToken,
+                setup.Application.ApplicationId,
+                "send-for-approval",
+                setup.Application.RowVersion,
+                "Practitioner review completed.");
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var updated =
+            await response.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        updated.Should().NotBeNull();
+
+        updated!.Status
+            .Should()
+            .Be("AWAITING_APPROVAL");
+    }
+
+    [Fact]
+    public async Task Illegal_practitioner_transition_should_return_conflict()
+    {
+        var setup =
+            await CreateAssignedApplicationAsync();
+
+        var approval =
+            await ProcessAsync(
+                setup.Practitioner.AccessToken,
+                setup.Application.ApplicationId,
+                "send-for-approval",
+                setup.Application.RowVersion,
+                "Review complete.");
+
+        var awaitingApproval =
+            await approval.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        awaitingApproval.Should().NotBeNull();
+
+        var illegal =
+            await ProcessAsync(
+                setup.Practitioner.AccessToken,
+                awaitingApproval!.ApplicationId,
+                "request-information",
+                awaitingApproval.RowVersion,
+                "Invalid transition.");
+
+        illegal.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Reassignment_should_transfer_processing_authority()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var submitted =
+            await CreateAndSubmitAsync(citizen);
+
+        var first =
+            await CreateStaffAsync("PRACTITIONER");
+
+        var second =
+            await CreateStaffAsync("PRACTITIONER");
+
+        await AssignAsync(
+            first.AccessToken,
+            submitted.ApplicationId,
+            first.UserId,
+            submitted.RowVersion);
+
+        var afterFirst =
+            await GetApplicationAsync(
+                citizen.AccessToken,
+                submitted.ApplicationId);
+
+        await AssignAsync(
+            first.AccessToken,
+            submitted.ApplicationId,
+            second.UserId,
+            afterFirst.RowVersion);
+
+        using var firstRequest =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                $"/api/v1/applications/" +
+                $"{submitted.ApplicationId}/assigned",
+                first.AccessToken);
+
+        var firstResponse =
+            await factory.Client.SendAsync(firstRequest);
+
+        firstResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.NotFound);
+
+        using var secondRequest =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                $"/api/v1/applications/" +
+                $"{submitted.ApplicationId}/assigned",
+                second.AccessToken);
+
+        var secondResponse =
+            await factory.Client.SendAsync(secondRequest);
+
+        secondResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Request_information_without_reason_should_return_bad_request()
+    {
+        var setup =
+            await CreateAssignedApplicationAsync();
+
+        var response =
+            await ProcessAsync(
+                setup.Practitioner.AccessToken,
+                setup.Application.ApplicationId,
+                "request-information",
+                setup.Application.RowVersion,
+                null);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.BadRequest);
+    }
+
     private async Task<TestAuthenticationResponse>
     CreateStaffAsync(
         string role)
@@ -1148,5 +1366,75 @@ public sealed class ApplicationTests(
             (await response.Content
                 .ReadFromJsonAsync<
                     ApplicationAssignmentResponse[]>())!;
+    }
+
+    private sealed record AssignedApplicationSetup(
+    TestAuthenticationResponse Citizen,
+    TestAuthenticationResponse Practitioner,
+    ApplicationResponse Application);
+
+    private async Task<AssignedApplicationSetup>
+    CreateAssignedApplicationAsync()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var submitted =
+            await CreateAndSubmitAsync(
+                citizen);
+
+        var practitioner =
+            await CreateStaffAsync(
+                "PRACTITIONER");
+
+        var assignmentResponse =
+            await AssignAsync(
+                practitioner.AccessToken,
+                submitted.ApplicationId,
+                practitioner.UserId,
+                submitted.RowVersion);
+
+        assignmentResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var inProgress =
+            await GetApplicationAsync(
+                citizen.AccessToken,
+                submitted.ApplicationId);
+
+        inProgress.Status
+            .Should()
+            .Be("IN_PROGRESS");
+
+        return new AssignedApplicationSetup(
+            citizen,
+            practitioner,
+            inProgress);
+    }
+
+    private async Task<HttpResponseMessage>
+    ProcessAsync(
+        string accessToken,
+        Guid applicationId,
+        string operation,
+        string rowVersion,
+        string? reason)
+    {
+        var request =
+            AuthenticatedRequest(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/{operation}",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new ProcessApplicationRequest(
+                    rowVersion,
+                    reason));
+
+        return await factory.Client.SendAsync(
+            request);
     }
 }

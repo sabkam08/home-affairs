@@ -399,4 +399,113 @@ internal sealed class ApplicationRepository(
                 ApplicationNotFoundPersistenceException();
         }
     }
+
+    public async Task<HomeAffairsApplication?>
+    GetAssignedByIdAsync(
+        Guid applicationId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText:
+                "[applications].Application_GetAssignedById",
+            parameters: new
+            {
+                ApplicationId =
+                    applicationId,
+
+                UserId =
+                    userId
+            },
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
+
+        var record =
+            await connection
+                .QuerySingleOrDefaultAsync<
+                    ApplicationRecord>(
+                        command);
+
+        return record?.ToDomain();
+    }
+
+    public async Task<HomeAffairsApplication>
+    TransitionByAssignedPractitionerAsync(
+        Guid applicationId,
+        Guid userId,
+        string targetStatus,
+        string? reason,
+        byte[] expectedRowVersion,
+        DateTimeOffset changedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText:
+                "[applications].Application_TransitionByAssignedPractitioner",
+            parameters: new
+            {
+                ApplicationId =
+                    applicationId,
+
+                UserId =
+                    userId,
+
+                TargetStatus =
+                    targetStatus,
+
+                Reason =
+                    reason,
+
+                ExpectedRowVersion =
+                    expectedRowVersion,
+
+                ChangedAtUtc =
+                    changedAtUtc.UtcDateTime
+            },
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
+
+        try
+        {
+            var record =
+                await connection.QuerySingleAsync<
+                    ApplicationRecord>(
+                        command);
+
+            return record.ToDomain();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52601)
+        {
+            throw new
+                ApplicationNotFoundPersistenceException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52602)
+        {
+            throw new
+                InvalidApplicationStatePersistenceException(
+                    "practitioner-transition");
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52603)
+        {
+            throw new
+                ApplicationConcurrencyException();
+        }
+    }
+
+
 }

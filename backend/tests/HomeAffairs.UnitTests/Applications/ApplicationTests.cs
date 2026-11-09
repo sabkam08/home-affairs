@@ -94,4 +94,40 @@ public sealed class ApplicationTests
             .Should()
             .BeFalse();
     }
+
+    [Theory]
+    [InlineData("IN_PROGRESS", "AWAITING_INFORMATION", true)]
+    [InlineData("IN_PROGRESS", "AWAITING_APPROVAL", true)]
+    [InlineData("AWAITING_INFORMATION", "IN_PROGRESS", true)]
+    [InlineData("AWAITING_APPROVAL", "IN_PROGRESS", false)]
+    [InlineData("SUBMITTED", "AWAITING_APPROVAL", false)]
+    public void Practitioner_transition_matrix_should_match_rules(
+    string currentStatus,
+    string targetStatus,
+    bool expected)
+    {
+        var allowed =
+            (
+                currentStatus ==
+                    ApplicationStatuses.InProgress
+                &&
+                (
+                    targetStatus ==
+                        ApplicationStatuses.AwaitingInformation
+                    ||
+                    targetStatus ==
+                        ApplicationStatuses.AwaitingApproval
+                )
+            )
+            ||
+            (
+                currentStatus ==
+                    ApplicationStatuses.AwaitingInformation
+                &&
+                targetStatus ==
+                    ApplicationStatuses.InProgress
+            );
+
+        allowed.Should().Be(expected);
+    }
 }

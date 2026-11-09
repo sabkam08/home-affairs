@@ -8,6 +8,7 @@ using HomeAffairs.Application.Applications.UpdateApplication;
 using HomeAffairs.Application.Applications.SubmitApplication;
 using HomeAffairs.Application.Applications.CancelApplication;
 using HomeAffairs.Application.Applications.GetApplicationHistory;
+using HomeAffairs.Application.Applications.Processing;
 using HomeAffairs.Contracts.Applications;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -315,6 +316,126 @@ public sealed class ApplicationsController(
             results
                 .Select(MapAssignment)
                 .ToArray());
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationProcess)]
+    [HttpGet("{applicationId:guid}/assigned")]
+    public async Task<ActionResult<ApplicationResponse>>
+    GetAssignedApplication(
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new GetAssignedApplicationQuery(
+                    applicationId),
+                cancellationToken);
+
+        return Ok(Map(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationProcess)]
+    [HttpPost(
+    "{applicationId:guid}/request-information")]
+    public async Task<ActionResult<ApplicationResponse>>
+    RequestInformation(
+        Guid applicationId,
+        ProcessApplicationRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new ProcessApplicationCommand(
+                    applicationId,
+                    "AWAITING_INFORMATION",
+                    rowVersion!,
+                    request.Reason),
+                cancellationToken);
+
+        return Ok(Map(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationProcess)]
+    [HttpPost(
+    "{applicationId:guid}/resume-processing")]
+    public async Task<ActionResult<ApplicationResponse>>
+    ResumeProcessing(
+        Guid applicationId,
+        ProcessApplicationRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new ProcessApplicationCommand(
+                    applicationId,
+                    "IN_PROGRESS",
+                    rowVersion!,
+                    request.Reason),
+                cancellationToken);
+
+        return Ok(Map(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationProcess)]
+    [HttpPost(
+    "{applicationId:guid}/send-for-approval")]
+    public async Task<ActionResult<ApplicationResponse>>
+    SendForApproval(
+        Guid applicationId,
+        ProcessApplicationRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new ProcessApplicationCommand(
+                    applicationId,
+                    "AWAITING_APPROVAL",
+                    rowVersion!,
+                    request.Reason),
+                cancellationToken);
+
+        return Ok(Map(result));
     }
 
     private static ApplicationResponse Map(
