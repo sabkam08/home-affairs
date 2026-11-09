@@ -6,6 +6,7 @@ using HomeAffairs.Application.Citizens.Dependants;
 using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Application.Applications;
+using HomeAffairs.Application.Applications.Approval;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -276,6 +277,30 @@ public sealed class GlobalExceptionHandler(
                             "Invalid application state",
                         Detail =
                             invalidStateException.Message
+                    },
+
+            ApplicationSelfApprovalException
+                selfApprovalException =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status409Conflict,
+                        Title =
+                            "Self-approval is not allowed",
+                        Detail =
+                            selfApprovalException.Message
+                    },
+
+            ApplicationDecisionNotAllowedException
+                decisionException =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status409Conflict,
+                        Title =
+                            "Application decision not allowed",
+                        Detail =
+                            decisionException.Message
                     },
 
             DomainException domainException =>

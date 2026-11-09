@@ -1199,6 +1199,262 @@ public sealed class ApplicationTests(
             .Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task Supervisor_should_approve_application()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        var response =
+            await DecideAsync(
+                setup.Supervisor.AccessToken,
+                setup.Application.ApplicationId,
+                "approve",
+                setup.Application.RowVersion,
+                "Approved by integration supervisor.");
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var approved =
+            await response.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        approved.Should().NotBeNull();
+
+        approved!.Status
+            .Should()
+            .Be("APPROVED");
+
+        approved.RowVersion
+            .Should()
+            .NotBe(setup.Application.RowVersion);
+    }
+
+    [Fact]
+    public async Task Supervisor_should_reject_application_with_reason()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        var response =
+            await DecideAsync(
+                setup.Supervisor.AccessToken,
+                setup.Application.ApplicationId,
+                "reject",
+                setup.Application.RowVersion,
+                "Supporting evidence is insufficient.");
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var rejected =
+            await response.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        rejected.Should().NotBeNull();
+
+        rejected!.Status
+            .Should()
+            .Be("REJECTED");
+    }
+
+    [Fact]
+    public async Task Rejection_without_reason_should_return_bad_request()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        var response =
+            await DecideAsync(
+                setup.Supervisor.AccessToken,
+                setup.Application.ApplicationId,
+                "reject",
+                setup.Application.RowVersion,
+                null);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Practitioner_should_not_approve_application()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        var response =
+            await DecideAsync(
+                setup.Practitioner.AccessToken,
+                setup.Application.ApplicationId,
+                "approve",
+                setup.Application.RowVersion,
+                "Should not be accepted.");
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Stale_supervisor_decision_should_return_conflict()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        var oldRowVersion =
+            setup.Application.RowVersion;
+
+        var first =
+            await DecideAsync(
+                setup.Supervisor.AccessToken,
+                setup.Application.ApplicationId,
+                "approve",
+                oldRowVersion,
+                "Approved.");
+
+        first.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var stale =
+            await DecideAsync(
+                setup.Supervisor.AccessToken,
+                setup.Application.ApplicationId,
+                "reject",
+                oldRowVersion,
+                "Stale rejection.");
+
+        stale.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Supervisor_decision_should_close_active_assignment()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        var response =
+            await DecideAsync(
+                setup.Supervisor.AccessToken,
+                setup.Application.ApplicationId,
+                "approve",
+                setup.Application.RowVersion,
+                "Approved.");
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var activeAssignmentCount =
+            await factory.QueryScalarAsync<int>(
+                $"""
+             SELECT COUNT(1)
+             FROM [applications].ApplicationAssignments
+             WHERE ApplicationId =
+                 '{setup.Application.ApplicationId}'
+               AND IsActive = 1;
+             """);
+
+        activeAssignmentCount
+            .Should()
+            .Be(0);
+
+        var closedBySupervisorCount =
+            await factory.QueryScalarAsync<int>(
+                $"""
+             SELECT COUNT(1)
+             FROM [applications].ApplicationAssignments
+             WHERE ApplicationId =
+                 '{setup.Application.ApplicationId}'
+               AND IsActive = 0
+               AND UnassignedByUserId =
+                   '{setup.Supervisor.UserId}'
+               AND UnassignedAtUtc IS NOT NULL;
+             """);
+
+        closedBySupervisorCount
+            .Should()
+            .Be(1);
+    }
+
+    [Fact]
+    public async Task Supervisor_decision_should_write_status_history()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        await DecideAsync(
+            setup.Supervisor.AccessToken,
+            setup.Application.ApplicationId,
+            "reject",
+            setup.Application.RowVersion,
+            "Evidence rejected.");
+
+        var count =
+            await factory.QueryScalarAsync<int>(
+                $"""
+             SELECT COUNT(1)
+             FROM [applications].ApplicationStatusHistory
+             WHERE ApplicationId =
+                 '{setup.Application.ApplicationId}'
+               AND FromStatus =
+                   'AWAITING_APPROVAL'
+               AND ToStatus =
+                   'REJECTED'
+               AND ChangedByUserId =
+                   '{setup.Supervisor.UserId}'
+               AND Reason =
+                   'Evidence rejected.';
+             """);
+
+        count.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Approval_queue_should_show_only_awaiting_approval()
+    {
+        var setup =
+            await CreateAwaitingApprovalApplicationAsync();
+
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                "/api/v1/applications/awaiting-approval",
+                setup.Supervisor.AccessToken);
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var applications =
+            await response.Content
+                .ReadFromJsonAsync<ApplicationResponse[]>();
+
+        applications.Should().NotBeNull();
+
+        applications!
+            .Should()
+            .Contain(application =>
+                application.ApplicationId ==
+                setup.Application.ApplicationId);
+
+        applications
+            .Should()
+            .OnlyContain(application =>
+                application.Status ==
+                "AWAITING_APPROVAL");
+    }
+
     private async Task<TestAuthenticationResponse>
     CreateStaffAsync(
         string role)
@@ -1431,6 +1687,76 @@ public sealed class ApplicationTests(
         request.Content =
             JsonContent.Create(
                 new ProcessApplicationRequest(
+                    rowVersion,
+                    reason));
+
+        return await factory.Client.SendAsync(
+            request);
+    }
+
+    private sealed record ApprovalApplicationSetup(
+    TestAuthenticationResponse Citizen,
+    TestAuthenticationResponse Practitioner,
+    TestAuthenticationResponse Supervisor,
+    ApplicationResponse Application);
+
+    private async Task<ApprovalApplicationSetup>
+    CreateAwaitingApprovalApplicationAsync()
+    {
+        var assigned =
+            await CreateAssignedApplicationAsync();
+
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        var approvalResponse =
+            await ProcessAsync(
+                assigned.Practitioner.AccessToken,
+                assigned.Application.ApplicationId,
+                "send-for-approval",
+                assigned.Application.RowVersion,
+                "Practitioner review complete.");
+
+        approvalResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var awaiting =
+            await approvalResponse.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        awaiting.Should().NotBeNull();
+
+        awaiting!.Status
+            .Should()
+            .Be("AWAITING_APPROVAL");
+
+        return new ApprovalApplicationSetup(
+            assigned.Citizen,
+            assigned.Practitioner,
+            supervisor,
+            awaiting);
+    }
+
+    private async Task<HttpResponseMessage>
+    DecideAsync(
+        string accessToken,
+        Guid applicationId,
+        string operation,
+        string rowVersion,
+        string? reason)
+    {
+        var request =
+            AuthenticatedRequest(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/{operation}",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new ApplicationDecisionRequest(
                     rowVersion,
                     reason));
 

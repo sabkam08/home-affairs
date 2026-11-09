@@ -9,6 +9,7 @@ using HomeAffairs.Application.Applications.SubmitApplication;
 using HomeAffairs.Application.Applications.CancelApplication;
 using HomeAffairs.Application.Applications.GetApplicationHistory;
 using HomeAffairs.Application.Applications.Processing;
+using HomeAffairs.Application.Applications.Approval;
 using HomeAffairs.Contracts.Applications;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -431,6 +432,93 @@ public sealed class ApplicationsController(
                 new ProcessApplicationCommand(
                     applicationId,
                     "AWAITING_APPROVAL",
+                    rowVersion!,
+                    request.Reason),
+                cancellationToken);
+
+        return Ok(Map(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationApprove)]
+    [HttpGet("awaiting-approval")]
+    public async Task<
+    ActionResult<
+        IReadOnlyCollection<ApplicationResponse>>>
+    GetAwaitingApproval(
+        CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetAwaitingApprovalQuery(),
+                cancellationToken);
+
+        return Ok(
+            results
+                .Select(Map)
+                .ToArray());
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationApprove)]
+    [HttpPost("{applicationId:guid}/approve")]
+    public async Task<ActionResult<ApplicationResponse>>
+    ApproveApplication(
+        Guid applicationId,
+        ApplicationDecisionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new DecideApplicationCommand(
+                    applicationId,
+                    "APPROVED",
+                    rowVersion!,
+                    request.Reason),
+                cancellationToken);
+
+        return Ok(Map(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationApprove)]
+    [HttpPost("{applicationId:guid}/reject")]
+    public async Task<ActionResult<ApplicationResponse>>
+    RejectApplication(
+        Guid applicationId,
+        ApplicationDecisionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new DecideApplicationCommand(
+                    applicationId,
+                    "REJECTED",
                     rowVersion!,
                     request.Reason),
                 cancellationToken);

@@ -507,5 +507,124 @@ internal sealed class ApplicationRepository(
         }
     }
 
+    public async Task<
+    IReadOnlyCollection<HomeAffairsApplication>>
+    GetAwaitingApprovalAsync(
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
 
+        var command = new CommandDefinition(
+            commandText:
+                "[applications].Application_GetAwaitingApproval",
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
+
+        var records =
+            await connection.QueryAsync<
+                ApplicationRecord>(command);
+
+        return records
+            .Select(record => record.ToDomain())
+            .ToArray();
+    }
+
+    public async Task<HomeAffairsApplication>
+    DecideAsync(
+        Guid applicationId,
+        Guid decisionByUserId,
+        string decision,
+        string? reason,
+        byte[] expectedRowVersion,
+        DateTimeOffset decidedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText:
+                "[applications].Application_Decide",
+            parameters: new
+            {
+                ApplicationId =
+                    applicationId,
+
+                DecisionByUserId =
+                    decisionByUserId,
+
+                Decision =
+                    decision,
+
+                Reason =
+                    reason,
+
+                ExpectedRowVersion =
+                    expectedRowVersion,
+
+                DecidedAtUtc =
+                    decidedAtUtc.UtcDateTime
+            },
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
+
+        try
+        {
+            var record =
+                await connection.QuerySingleAsync<
+                    ApplicationRecord>(command);
+
+            return record.ToDomain();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52701)
+        {
+            throw new
+                ApplicationNotFoundPersistenceException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52702)
+        {
+            throw new
+                InvalidApplicationStatePersistenceException(
+                    "decision");
+        }
+        catch (SqlException exception)
+            when (exception.Number is 52703 or 52704)
+        {
+            throw new
+                InvalidApplicationDecisionException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52705)
+        {
+            throw new
+                InvalidApplicationDecisionMakerException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52706)
+        {
+            throw new
+                ApplicationAssignmentRequiredException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52707)
+        {
+            throw new
+                SelfApprovalNotAllowedException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52708)
+        {
+            throw new
+                ApplicationConcurrencyException();
+        }
+    }
 }

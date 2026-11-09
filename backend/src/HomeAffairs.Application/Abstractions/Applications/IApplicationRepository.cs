@@ -65,4 +65,17 @@ public interface IApplicationRepository
             byte[] expectedRowVersion,
             DateTimeOffset changedAtUtc,
             CancellationToken cancellationToken);
+
+    Task<HomeAffairsApplication> DecideAsync(
+        Guid applicationId,
+        Guid decisionByUserId,
+        string decision,
+        string? reason,
+        byte[] expectedRowVersion,
+        DateTimeOffset decidedAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<HomeAffairsApplication>>
+        GetAwaitingApprovalAsync(
+            CancellationToken cancellationToken);
 }

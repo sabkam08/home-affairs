@@ -130,4 +130,30 @@ public sealed class ApplicationTests
 
         allowed.Should().Be(expected);
     }
+
+    [Theory]
+    [InlineData("AWAITING_APPROVAL", "APPROVED", true)]
+    [InlineData("AWAITING_APPROVAL", "REJECTED", true)]
+    [InlineData("IN_PROGRESS", "APPROVED", false)]
+    [InlineData("SUBMITTED", "REJECTED", false)]
+    [InlineData("APPROVED", "REJECTED", false)]
+    public void Supervisor_decision_matrix_should_match_rules(
+    string currentStatus,
+    string targetStatus,
+    bool expected)
+    {
+        var allowed =
+            currentStatus ==
+                ApplicationStatuses.AwaitingApproval
+            &&
+            (
+                targetStatus ==
+                    ApplicationStatuses.Approved
+                ||
+                targetStatus ==
+                    ApplicationStatuses.Rejected
+            );
+
+        allowed.Should().Be(expected);
+    }
 }
