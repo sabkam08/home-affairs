@@ -5,6 +5,7 @@ namespace HomeAffairs.UnitTests.Applications;
 
 public sealed class ApplicationTests
 {
+    #region All Tests
     [Fact]
     public void Matching_applicant_and_subject_should_be_self_application()
     {
@@ -95,6 +96,59 @@ public sealed class ApplicationTests
             .BeFalse();
     }
 
+    [Fact]
+    public void Search_page_should_calculate_total_pages()
+    {
+        var page =
+            new HomeAffairs.Application
+                .Abstractions.Applications
+                .ApplicationSearchPage(
+                    [],
+                    totalCount: 41,
+                    pageNumber: 1,
+                    pageSize: 20);
+
+        page.TotalPages
+            .Should()
+            .Be(3);
+    }
+
+    [Fact]
+    public void Empty_search_page_should_have_zero_total_pages()
+    {
+        var page =
+            new HomeAffairs.Application
+                .Abstractions.Applications
+                .ApplicationSearchPage(
+                    [],
+                    totalCount: 0,
+                    pageNumber: 1,
+                    pageSize: 20);
+
+        page.TotalPages
+            .Should()
+            .Be(0);
+    }
+
+    [Fact]
+    public void Exact_page_multiple_should_not_add_extra_page()
+    {
+        var page =
+            new HomeAffairs.Application
+                .Abstractions.Applications
+                .ApplicationSearchPage(
+                    [],
+                    totalCount: 40,
+                    pageNumber: 1,
+                    pageSize: 20);
+
+        page.TotalPages
+            .Should()
+            .Be(2);
+    }
+    #endregion
+
+    #region Theory Helper Tests
     [Theory]
     [InlineData("IN_PROGRESS", "AWAITING_INFORMATION", true)]
     [InlineData("IN_PROGRESS", "AWAITING_APPROVAL", true)]
@@ -156,4 +210,5 @@ public sealed class ApplicationTests
 
         allowed.Should().Be(expected);
     }
+    #endregion
 }

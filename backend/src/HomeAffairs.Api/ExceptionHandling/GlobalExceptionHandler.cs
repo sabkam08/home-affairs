@@ -7,6 +7,7 @@ using HomeAffairs.Application.Identity.Login;
 using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Application.Applications;
 using HomeAffairs.Application.Applications.Approval;
+using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -301,6 +302,18 @@ public sealed class GlobalExceptionHandler(
                             "Application decision not allowed",
                         Detail =
                             decisionException.Message
+                    },
+
+            InvalidApplicationSearchException
+                searchException =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status400BadRequest,
+                        Title =
+                            "Invalid application search",
+                        Detail =
+                            searchException.Message
                     },
 
             DomainException domainException =>

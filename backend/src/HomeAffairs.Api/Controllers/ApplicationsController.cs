@@ -10,12 +10,16 @@ using HomeAffairs.Application.Applications.CancelApplication;
 using HomeAffairs.Application.Applications.GetApplicationHistory;
 using HomeAffairs.Application.Applications.Processing;
 using HomeAffairs.Application.Applications.Approval;
+using HomeAffairs.Application.Applications.SearchApplications;
 using HomeAffairs.Contracts.Applications;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HomeAffairs.Api.Controllers;
+
+
+#region Endpoints
 
 [ApiController]
 [Route("api/v1/applications")]
@@ -526,6 +530,63 @@ public sealed class ApplicationsController(
         return Ok(Map(result));
     }
 
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationReadAll)]
+    [HttpGet("search")]
+    [ProducesResponseType(
+    typeof(ApplicationSearchResponse),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(
+    typeof(ValidationProblemDetails),
+    StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+    StatusCodes.Status403Forbidden)]
+    public async Task<
+    ActionResult<ApplicationSearchResponse>>
+    SearchApplications(
+        [FromQuery] string? applicationNumber,
+        [FromQuery] string? applicationType,
+        [FromQuery] string? status,
+        [FromQuery] Guid? applicantCitizenId,
+        [FromQuery] Guid? subjectCitizenId,
+        [FromQuery] Guid? assignedToUserId,
+        [FromQuery] DateTimeOffset? createdFromUtc,
+        [FromQuery] DateTimeOffset? createdToUtc,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result =
+            await sender.Send(
+                new SearchApplicationsQuery(
+                    applicationNumber,
+                    applicationType,
+                    status,
+                    applicantCitizenId,
+                    subjectCitizenId,
+                    assignedToUserId,
+                    createdFromUtc,
+                    createdToUtc,
+                    pageNumber,
+                    pageSize),
+                cancellationToken);
+
+        var response =
+            new ApplicationSearchResponse(
+                result.Items
+                    .Select(Map)
+                    .ToArray(),
+                result.TotalCount,
+                result.PageNumber,
+                result.PageSize,
+                result.TotalPages);
+
+        return Ok(response);
+    }
+#endregion
+
+    #region Helpers
     private static ApplicationResponse Map(
         ApplicationResult result)
     {
@@ -585,4 +646,5 @@ public sealed class ApplicationsController(
             Convert.ToBase64String(
                 result.RowVersion));
     }
+    #endregion
 }

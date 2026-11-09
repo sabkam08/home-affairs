@@ -78,4 +78,8 @@ public interface IApplicationRepository
     Task<IReadOnlyCollection<HomeAffairsApplication>>
         GetAwaitingApprovalAsync(
             CancellationToken cancellationToken);
-}
+
+    Task<ApplicationSearchPage> SearchAsync(
+        ApplicationSearchCriteria criteria,
+        CancellationToken cancellationToken);
+    }

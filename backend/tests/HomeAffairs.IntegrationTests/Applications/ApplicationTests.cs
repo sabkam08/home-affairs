@@ -14,6 +14,7 @@ namespace HomeAffairs.IntegrationTests.Applications;
 public sealed class ApplicationTests(
     HomeAffairsApiFactory factory)
 {
+    #region Integration Tests
     [Fact]
     public async Task Citizen_should_create_self_application()
     {
@@ -1455,6 +1456,310 @@ public sealed class ApplicationTests(
                 "AWAITING_APPROVAL");
     }
 
+    [Fact]
+    public async Task Staff_should_search_applications()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<
+                    ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        var result =
+            await SearchAsync(
+                supervisor.AccessToken,
+                "pageNumber=1&pageSize=20");
+
+        result.Items
+            .Should()
+            .Contain(application =>
+                application.ApplicationId ==
+                created!.ApplicationId);
+
+        result.TotalCount
+            .Should()
+            .BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Search_should_filter_by_status()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        await CreateApplicationAsync(
+            citizen.AccessToken,
+            new CreateApplicationRequest(
+                "SMART_ID_CORRECTION",
+                null));
+
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        var result =
+            await SearchAsync(
+                supervisor.AccessToken,
+                "status=DRAFT&pageNumber=1&pageSize=100");
+
+        result.Items
+            .Should()
+            .NotBeEmpty();
+
+        result.Items
+            .Should()
+            .OnlyContain(application =>
+                application.Status == "DRAFT");
+    }
+
+    [Fact]
+    public async Task Search_should_filter_by_application_type()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_REPLACEMENT_LOST",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<
+                    ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        var result =
+            await SearchAsync(
+                supervisor.AccessToken,
+                "applicationType=" +
+                "SMART_ID_REPLACEMENT_LOST" +
+                "&pageNumber=1&pageSize=100");
+
+        result.Items
+            .Should()
+            .Contain(application =>
+                application.ApplicationId ==
+                created!.ApplicationId);
+
+        result.Items
+            .Should()
+            .OnlyContain(application =>
+                application.ApplicationType ==
+                "SMART_ID_REPLACEMENT_LOST");
+    }
+
+    [Fact]
+    public async Task Search_should_filter_by_applicant()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var createResponse =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null));
+
+        var created =
+            await createResponse.Content
+                .ReadFromJsonAsync<
+                    ApplicationResponse>();
+
+        created.Should().NotBeNull();
+
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        var result =
+            await SearchAsync(
+                supervisor.AccessToken,
+                $"applicantCitizenId=" +
+                $"{created!.ApplicantCitizenId}" +
+                "&pageNumber=1&pageSize=100");
+
+        result.Items
+            .Should()
+            .NotBeEmpty();
+
+        result.Items
+            .Should()
+            .OnlyContain(application =>
+                application.ApplicantCitizenId ==
+                created.ApplicantCitizenId);
+    }
+
+    [Fact]
+    public async Task Search_should_apply_database_paging()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        for (var index = 0;
+             index < 5;
+             index++)
+        {
+            var response =
+                await CreateApplicationAsync(
+                    citizen.AccessToken,
+                    new CreateApplicationRequest(
+                        "SMART_ID_CORRECTION",
+                        null));
+
+            response.StatusCode
+                .Should()
+                .Be(HttpStatusCode.Created);
+        }
+
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        var pageOne =
+            await SearchAsync(
+                supervisor.AccessToken,
+                "pageNumber=1&pageSize=2");
+
+        var pageTwo =
+            await SearchAsync(
+                supervisor.AccessToken,
+                "pageNumber=2&pageSize=2");
+
+        pageOne.PageNumber
+            .Should()
+            .Be(1);
+
+        pageTwo.PageNumber
+            .Should()
+            .Be(2);
+
+        pageOne.PageSize
+            .Should()
+            .Be(2);
+
+        pageOne.Items
+            .Should()
+            .HaveCount(2);
+
+        pageTwo.Items
+            .Should()
+            .HaveCount(2);
+
+        pageOne.Items
+            .Select(application =>
+                application.ApplicationId)
+            .Should()
+            .NotIntersectWith(
+                pageTwo.Items.Select(application =>
+                    application.ApplicationId));
+
+        pageOne.TotalCount
+            .Should()
+            .Be(pageTwo.TotalCount);
+
+        pageOne.TotalPages
+            .Should()
+            .BeGreaterThanOrEqualTo(3);
+    }
+
+    [Fact]
+    public async Task Search_page_size_over_limit_should_return_bad_request()
+    {
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                "/api/v1/applications/search" +
+                "?pageNumber=1&pageSize=101",
+                supervisor.AccessToken);
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Citizen_should_not_search_all_applications()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                "/api/v1/applications/search" +
+                "?pageNumber=1&pageSize=20",
+                citizen.AccessToken);
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Search_with_no_matches_should_return_empty_page()
+    {
+        var supervisor =
+            await CreateStaffAsync(
+                "SUPERVISOR");
+
+        var result =
+            await SearchAsync(
+                supervisor.AccessToken,
+                "applicationNumber=" +
+                "DOES-NOT-EXIST-999999" +
+                "&pageNumber=1&pageSize=20");
+
+        result.Items
+            .Should()
+            .BeEmpty();
+
+        result.TotalCount
+            .Should()
+            .Be(0);
+
+        result.TotalPages
+            .Should()
+            .Be(0);
+    }
+    #endregion
+
+    #region Helper Methods
     private async Task<TestAuthenticationResponse>
     CreateStaffAsync(
         string role)
@@ -1763,4 +2068,48 @@ public sealed class ApplicationTests(
         return await factory.Client.SendAsync(
             request);
     }
+
+    private async Task<ApplicationSearchResponse>
+    SearchAsync(
+        string accessToken,
+        string queryString = "")
+    {
+        var uri =
+            "/api/v1/applications/search";
+
+        if (!string.IsNullOrWhiteSpace(
+                queryString))
+        {
+            uri +=
+                queryString.StartsWith(
+                    "?",
+                    StringComparison.Ordinal)
+                    ? queryString
+                    : $"?{queryString}";
+        }
+
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                uri,
+                accessToken);
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var result =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ApplicationSearchResponse>();
+
+        result.Should().NotBeNull();
+
+        return result!;
+    }
+    #endregion
 }

@@ -627,4 +627,89 @@ internal sealed class ApplicationRepository(
                 ApplicationConcurrencyException();
         }
     }
+
+    public async Task<ApplicationSearchPage> SearchAsync(
+    ApplicationSearchCriteria criteria,
+    CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command = new CommandDefinition(
+            commandText:
+                "[applications].Application_Search",
+            parameters: new
+            {
+                criteria.ApplicationNumber,
+                criteria.ApplicationType,
+                criteria.Status,
+                criteria.ApplicantCitizenId,
+                criteria.SubjectCitizenId,
+                criteria.AssignedToUserId,
+
+                CreatedFromUtc =
+                    criteria.CreatedFromUtc?
+                        .UtcDateTime,
+
+                CreatedToUtc =
+                    criteria.CreatedToUtc?
+                        .UtcDateTime,
+
+                criteria.PageNumber,
+                criteria.PageSize
+            },
+            commandType:
+                CommandType.StoredProcedure,
+            cancellationToken:
+                cancellationToken);
+
+        try
+        {
+            using var results =
+                await connection.QueryMultipleAsync(
+                    command);
+
+            var totalCount =
+                await results.ReadSingleAsync<int>();
+
+            var records =
+                (
+                    await results.ReadAsync<
+                        ApplicationRecord>()
+                )
+                .ToArray();
+
+            var applications =
+                records
+                    .Select(record =>
+                        record.ToDomain())
+                    .ToArray();
+
+            return new ApplicationSearchPage(
+                applications,
+                totalCount,
+                criteria.PageNumber,
+                criteria.PageSize);
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52801)
+        {
+            throw new InvalidApplicationSearchException(
+                "Page number must be greater than zero.");
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52802)
+        {
+            throw new InvalidApplicationSearchException(
+                "Page size must be between 1 and 100.");
+        }
+        catch (SqlException exception)
+            when (exception.Number == 52803)
+        {
+            throw new InvalidApplicationSearchException(
+                "Created-from date may not be later " +
+                "than created-to date.");
+        }
+    }
 }
