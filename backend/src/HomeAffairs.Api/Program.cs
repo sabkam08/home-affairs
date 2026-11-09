@@ -171,15 +171,26 @@ builder.Services.AddAuthorization(options =>
         });
 
     options.AddPolicy(
-    AuthorizationPolicies.ProfileManageSelf,
-    policy =>
-    {
-        policy.RequireAuthenticatedUser();
+        AuthorizationPolicies.ProfileManageSelf,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
 
-        policy.AddRequirements(
-            new PermissionRequirement(
-                Permissions.Profile.ManageSelf));
-    });
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Profile.ManageSelf));
+        });
+
+    options.AddPolicy(
+        AuthorizationPolicies.ApplicationReassign,
+        policy =>
+        {
+            policy.RequireAuthenticatedUser();
+
+            policy.AddRequirements(
+                new PermissionRequirement(
+                    Permissions.Applications.Reassign));
+        });
 });
 
 builder.Services.AddScoped<

@@ -28,4 +28,7 @@ public static class AuthorizationPolicies
 
     public const string AuditRead =
         "Permission:AUDIT.READ";
+
+    public const string ApplicationReassign =
+    "Permission:APPLICATION.REASSIGN";
 }

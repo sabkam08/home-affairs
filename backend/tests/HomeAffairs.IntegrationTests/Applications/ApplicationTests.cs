@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using HomeAffairs.Contracts.Applications;
 using HomeAffairs.Contracts.Citizens;
+using HomeAffairs.Contracts.Identity;
 using HomeAffairs.IntegrationTests.Identity;
 using HomeAffairs.IntegrationTests.Infrastructure;
 
@@ -824,5 +825,328 @@ public sealed class ApplicationTests(
 
         return await factory.Client.SendAsync(
             request);
+    }
+
+    [Fact]
+    public async Task Assignment_should_reject_non_practitioner()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var application =
+            await CreateAndSubmitAsync(
+                citizen);
+
+        var otherCitizen =
+            await CreateAdultCitizenAsync();
+
+        var response =
+            await AssignAsync(
+                citizen.AccessToken,
+                application.ApplicationId,
+                otherCitizen.UserId,
+                application.RowVersion);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Application_should_be_assigned_and_reassigned()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var submitted =
+            await CreateAndSubmitAsync(
+                citizen);
+
+        var practitionerOne =
+            await CreateStaffAsync(
+                "PRACTITIONER");
+
+        var practitionerTwo =
+            await CreateStaffAsync(
+                "PRACTITIONER");
+
+        var firstAssignment =
+            await AssignAsync(
+                practitionerOne.AccessToken,
+                submitted.ApplicationId,
+                practitionerOne.UserId,
+                submitted.RowVersion);
+
+        firstAssignment.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var afterFirst =
+            await GetApplicationAsync(
+                citizen.AccessToken,
+                submitted.ApplicationId);
+
+        afterFirst.Status
+            .Should()
+            .Be("IN_PROGRESS");
+
+        var secondAssignment =
+            await AssignAsync(
+                practitionerOne.AccessToken,
+                submitted.ApplicationId,
+                practitionerTwo.UserId,
+                afterFirst.RowVersion);
+
+        secondAssignment.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var history =
+            await GetAssignmentHistoryAsync(
+                practitionerOne.AccessToken,
+                submitted.ApplicationId);
+
+        history.Should().HaveCount(2);
+
+        history[0].IsActive.Should().BeFalse();
+        history[0].UnassignedAtUtc.Should().NotBeNull();
+
+        history[1].IsActive.Should().BeTrue();
+
+        history[1].AssignedToUserId
+            .Should()
+            .Be(practitionerTwo.UserId);
+    }
+
+    [Fact]
+    public async Task Assigned_application_should_move_between_practitioner_queues()
+    {
+        var citizen =
+            await CreateAdultCitizenAsync();
+
+        var application =
+            await CreateAndSubmitAsync(citizen);
+
+        var first =
+            await CreateStaffAsync("PRACTITIONER");
+
+        var second =
+            await CreateStaffAsync("PRACTITIONER");
+
+        await AssignAsync(
+            first.AccessToken,
+            application.ApplicationId,
+            first.UserId,
+            application.RowVersion);
+
+        var updated =
+            await GetApplicationAsync(
+                citizen.AccessToken,
+                application.ApplicationId);
+
+        var firstQueue =
+            await GetAssignedAsync(
+                first.AccessToken);
+
+        firstQueue
+            .Should()
+            .Contain(x =>
+                x.ApplicationId ==
+                application.ApplicationId);
+
+        await AssignAsync(
+            first.AccessToken,
+            application.ApplicationId,
+            second.UserId,
+            updated.RowVersion);
+
+        firstQueue =
+            await GetAssignedAsync(
+                first.AccessToken);
+
+        var secondQueue =
+            await GetAssignedAsync(
+                second.AccessToken);
+
+        firstQueue
+            .Should()
+            .NotContain(x =>
+                x.ApplicationId ==
+                application.ApplicationId);
+
+        secondQueue
+            .Should()
+            .Contain(x =>
+                x.ApplicationId ==
+                application.ApplicationId);
+    }
+
+    private async Task<TestAuthenticationResponse>
+    CreateStaffAsync(
+        string role)
+    {
+        var administrator =
+            await IdentityTestHelper
+                .RegisterCitizenAsync(factory);
+
+        await IdentityTestHelper.AssignRoleDirectlyAsync(
+            factory,
+            administrator.UserId,
+            "SECURITY_ADMINISTRATOR");
+
+        var adminLogin =
+            await IdentityTestHelper.LoginAsync(
+                factory,
+                administrator.Email);
+
+        var staffEmail =
+            IdentityTestHelper.UniqueEmail(
+                role.ToLowerInvariant());
+
+        var request =
+            AuthenticatedRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/users/staff",
+                adminLogin.AccessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new CreateStaffUserRequest(
+                    staffEmail,
+                    "HomeAffairs-Test-2026!",
+                    "Application",
+                    "Staff",
+                    role));
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.EnsureSuccessStatusCode();
+
+        return await IdentityTestHelper.LoginAsync(
+            factory,
+            staffEmail);
+    }
+
+    private async Task<ApplicationResponse>
+    CreateAndSubmitAsync(
+        TestAuthenticationResponse citizen)
+    {
+        var create =
+            await CreateApplicationAsync(
+                citizen.AccessToken,
+                new CreateApplicationRequest(
+                    "SMART_ID_CORRECTION",
+                    null));
+
+        var draft =
+            await create.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        draft.Should().NotBeNull();
+
+        var submit =
+            await SubmitApplicationAsync(
+                citizen.AccessToken,
+                draft!.ApplicationId,
+                draft.RowVersion);
+
+        var submitted =
+            await submit.Content
+                .ReadFromJsonAsync<ApplicationResponse>();
+
+        submitted.Should().NotBeNull();
+
+        return submitted!;
+    }
+
+    private async Task<HttpResponseMessage>
+        AssignAsync(
+            string accessToken,
+            Guid applicationId,
+            Guid assignedToUserId,
+            string rowVersion)
+    {
+        var request =
+            AuthenticatedRequest(
+                HttpMethod.Put,
+                $"/api/v1/applications/" +
+                $"{applicationId}/assignment",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new AssignApplicationRequest(
+                    assignedToUserId,
+                    rowVersion,
+                    "Integration test assignment."));
+
+        return await factory.Client.SendAsync(
+            request);
+    }
+
+    private async Task<ApplicationResponse>
+        GetApplicationAsync(
+            string accessToken,
+            Guid applicationId)
+    {
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                $"/api/v1/applications/{applicationId}",
+                accessToken);
+
+        var response =
+            await factory.Client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+
+        return
+            (await response.Content
+                .ReadFromJsonAsync<ApplicationResponse>())!;
+    }
+
+    private async Task<ApplicationResponse[]>
+        GetAssignedAsync(
+            string accessToken)
+    {
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                "/api/v1/applications/assigned-to-me",
+                accessToken);
+
+        var response =
+            await factory.Client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+
+        return
+            (await response.Content
+                .ReadFromJsonAsync<ApplicationResponse[]>())!;
+    }
+
+    private async Task<ApplicationAssignmentResponse[]>
+        GetAssignmentHistoryAsync(
+            string accessToken,
+            Guid applicationId)
+    {
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Get,
+                $"/api/v1/applications/" +
+                $"{applicationId}/assignments",
+                accessToken);
+
+        var response =
+            await factory.Client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+
+        return
+            (await response.Content
+                .ReadFromJsonAsync<
+                    ApplicationAssignmentResponse[]>())!;
     }
 }

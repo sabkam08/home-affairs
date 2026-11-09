@@ -1,5 +1,6 @@
 using HomeAffairs.Api.Authorization;
 using HomeAffairs.Application.Applications;
+using HomeAffairs.Application.Applications.Assignments;
 using HomeAffairs.Application.Applications.CreateApplication;
 using HomeAffairs.Application.Applications.GetApplication;
 using HomeAffairs.Application.Applications.GetMyApplications;
@@ -219,6 +220,103 @@ public sealed class ApplicationsController(
                 .ToArray());
     }
 
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationReassign)]
+    [HttpPut("{applicationId:guid}/assignment")]
+    public async Task<
+    ActionResult<ApplicationAssignmentResponse>>
+    AssignApplication(
+        Guid applicationId,
+        AssignApplicationRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryDecodeRowVersion(
+                request.RowVersion,
+                out var rowVersion))
+        {
+            ModelState.AddModelError(
+                nameof(request.RowVersion),
+                "RowVersion must be valid Base64.");
+
+            return ValidationProblem(ModelState);
+        }
+
+        var result =
+            await sender.Send(
+                new AssignApplicationCommand(
+                    applicationId,
+                    request.AssignedToUserId,
+                    rowVersion!,
+                    request.Reason),
+                cancellationToken);
+
+        return Ok(
+            MapAssignment(result));
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationProcess)]
+    [HttpGet("assigned-to-me")]
+    public async Task<
+    ActionResult<
+        IReadOnlyCollection<ApplicationResponse>>>
+    GetAssignedToMe(
+        CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetAssignedToMeQuery(),
+                cancellationToken);
+
+        return Ok(
+            results.Select(Map).ToArray());
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationProcess)]
+    [HttpGet("unassigned")]
+    public async Task<
+    ActionResult<
+        IReadOnlyCollection<ApplicationResponse>>>
+    GetUnassigned(
+        CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetUnassignedApplicationsQuery(),
+                cancellationToken);
+
+        return Ok(
+            results.Select(Map).ToArray());
+    }
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationProcess)]
+    [HttpGet("{applicationId:guid}/assignments")]
+    public async Task<
+    ActionResult<
+        IReadOnlyCollection<
+            ApplicationAssignmentResponse>>>
+    GetAssignments(
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetAssignmentHistoryQuery(
+                    applicationId),
+                cancellationToken);
+
+        return Ok(
+            results
+                .Select(MapAssignment)
+                .ToArray());
+    }
+
     private static ApplicationResponse Map(
         ApplicationResult result)
     {
@@ -259,5 +357,23 @@ public sealed class ApplicationsController(
         {
             return false;
         }
+    }
+
+    private static ApplicationAssignmentResponse
+    MapAssignment(
+        ApplicationAssignmentResult result)
+    {
+        return new ApplicationAssignmentResponse(
+            result.ApplicationAssignmentId,
+            result.ApplicationId,
+            result.AssignedToUserId,
+            result.AssignedByUserId,
+            result.AssignedAtUtc,
+            result.UnassignedAtUtc,
+            result.UnassignedByUserId,
+            result.Reason,
+            result.IsActive,
+            Convert.ToBase64String(
+                result.RowVersion));
     }
 }

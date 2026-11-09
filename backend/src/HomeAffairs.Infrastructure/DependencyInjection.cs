@@ -132,6 +132,10 @@ public static class DependencyInjection
             IApplicationNumberGenerator,
             ApplicationNumberGenerator>();
 
+        services.AddScoped<
+            IApplicationAssignmentRepository,
+            ApplicationAssignmentRepository>();
+
         services
             .AddHealthChecks()
             .AddCheck<SqlServerHealthCheck>(
