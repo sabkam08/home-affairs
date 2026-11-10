@@ -2,6 +2,8 @@ using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Application.Abstractions.Identity;
 using HomeAffairs.Application.Abstractions.Time;
 using HomeAffairs.Application.Applications.CreateApplication;
+using HomeAffairs.Application.Abstractions.Workflow;
+using HomeAffairs.Application.Workflow;
 using HomeAffairs.Domain.Common.Exceptions;
 using MediatR;
 
@@ -76,6 +78,10 @@ internal sealed class DecideApplicationCommandHandler(
         catch (ApplicationConcurrencyException)
         {
             throw new ApplicationConflictException();
+        }
+        catch (WorkflowStateMismatchPersistenceException)
+        {
+            throw new WorkflowStateMismatchException();
         }
     }
 

@@ -9,7 +9,6 @@ using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Application.Applications;
 using HomeAffairs.Application.Applications.Approval;
 using HomeAffairs.Application.Abstractions.Applications;
-using HomeAffairs.Application.Workflow;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -339,6 +338,18 @@ public sealed class GlobalExceptionHandler(
                     Detail =
                         "The workflow instance could not be found."
                 },
+
+            WorkflowStateMismatchException
+                workflowStateMismatchException =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status409Conflict,
+                        Title =
+                            "Workflow state conflict",
+                        Detail =
+                            workflowStateMismatchException.Message
+                    },
 
             DomainException domainException =>
                 new ProblemDetails

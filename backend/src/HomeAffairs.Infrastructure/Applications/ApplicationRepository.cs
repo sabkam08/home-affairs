@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Application.Abstractions.Persistence;
+using HomeAffairs.Application.Abstractions.Workflow;
 using HomeAffairs.Domain.Applications;
 using Microsoft.Data.SqlClient;
 
@@ -505,6 +506,11 @@ internal sealed class ApplicationRepository(
             throw new
                 ApplicationConcurrencyException();
         }
+        catch (SqlException exception)
+            when (exception.Number == 52906)
+        {
+            throw new WorkflowStateMismatchPersistenceException();
+        }
     }
 
     public async Task<
@@ -625,6 +631,11 @@ internal sealed class ApplicationRepository(
         {
             throw new
                 ApplicationConcurrencyException();
+        }
+        catch (SqlException exception)
+             when (exception.Number == 52906)
+        {
+            throw new WorkflowStateMismatchPersistenceException();
         }
     }
 
