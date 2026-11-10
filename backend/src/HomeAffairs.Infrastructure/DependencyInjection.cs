@@ -3,6 +3,8 @@ using HomeAffairs.Application.Abstractions.Persistence;
 using HomeAffairs.Application.Abstractions.Time;
 using HomeAffairs.Application.Abstractions.Citizens;
 using HomeAffairs.Application.Abstractions.Applications;
+using HomeAffairs.Application.Abstractions.Workflow;
+using HomeAffairs.Infrastructure.Workflow;
 using HomeAffairs.Infrastructure.Applications;
 using HomeAffairs.Infrastructure.Citizens;
 using HomeAffairs.Infrastructure.Identity;
@@ -135,6 +137,10 @@ public static class DependencyInjection
         services.AddScoped<
             IApplicationAssignmentRepository,
             ApplicationAssignmentRepository>();
+
+        services.AddScoped<
+            IWorkflowDefinitionRepository,
+            WorkflowDefinitionRepository>();
 
         services
             .AddHealthChecks()

@@ -1,4 +1,5 @@
 using FluentValidation;
+using HomeAffairs.Application.Workflow;
 using HomeAffairs.Application.Citizens;
 using HomeAffairs.Application.Citizens.ContactDetails;
 using HomeAffairs.Application.Citizens.Addresses;
@@ -315,6 +316,17 @@ public sealed class GlobalExceptionHandler(
                         Detail =
                             searchException.Message
                     },
+
+            WorkflowDefinitionNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Workflow definition not found",
+                    Detail =
+                        "The workflow definition could not be found."
+                },
 
             DomainException domainException =>
                 new ProblemDetails
