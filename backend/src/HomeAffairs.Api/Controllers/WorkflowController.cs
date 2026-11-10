@@ -1,5 +1,7 @@
 using HomeAffairs.Application.Workflow.GetWorkflowDefinition;
 using HomeAffairs.Contracts.Workflow;
+using HomeAffairs.Application.Workflow.GetAvailableTransitions;
+using HomeAffairs.Application.Workflow.GetWorkflowInstance;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -59,5 +61,76 @@ public sealed class WorkflowController(
                             transition.RequiredPermission,
                             transition.RequiresReason))
                     .ToArray()));
+    }
+
+    [HttpGet(
+    "applications/{applicationId:guid}")]
+    [ProducesResponseType(
+    typeof(WorkflowInstanceResponse),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(
+    StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<WorkflowInstanceResponse>>
+    GetApplicationWorkflow(
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new GetMyWorkflowInstanceQuery(
+                    applicationId),
+                cancellationToken);
+
+        return Ok(
+            new WorkflowInstanceResponse(
+                result.WorkflowInstanceId,
+                result.WorkflowDefinitionId,
+                result.ApplicationId,
+                result.ApplicationType,
+                result.WorkflowName,
+                result.WorkflowVersion,
+                result.CurrentStateCode,
+                result.StartedAtUtc,
+                result.CompletedAtUtc,
+                result.CreatedAtUtc,
+                result.UpdatedAtUtc,
+                Convert.ToBase64String(
+                    result.RowVersion)));
+    }
+
+    [HttpGet(
+    "applications/{applicationId:guid}/transitions")]
+    [ProducesResponseType(
+    typeof(
+        IReadOnlyCollection<
+            AvailableWorkflowTransitionResponse>),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(
+    StatusCodes.Status404NotFound)]
+    public async Task<
+    ActionResult<
+        IReadOnlyCollection<
+            AvailableWorkflowTransitionResponse>>>
+    GetAvailableTransitions(
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new GetAvailableTransitionsQuery(
+                    applicationId),
+                cancellationToken);
+
+        return Ok(
+            results
+                .Select(result =>
+                    new AvailableWorkflowTransitionResponse(
+                        result.FromStateCode,
+                        result.ToStateCode,
+                        result.ActionCode,
+                        result.DisplayName,
+                        result.RequiredPermission,
+                        result.RequiresReason))
+                .ToArray());
     }
 }

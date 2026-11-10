@@ -9,6 +9,7 @@ using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Application.Applications;
 using HomeAffairs.Application.Applications.Approval;
 using HomeAffairs.Application.Abstractions.Applications;
+using HomeAffairs.Application.Workflow;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -326,6 +327,17 @@ public sealed class GlobalExceptionHandler(
                         "Workflow definition not found",
                     Detail =
                         "The workflow definition could not be found."
+                },
+
+            WorkflowInstanceNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Workflow instance not found",
+                    Detail =
+                        "The workflow instance could not be found."
                 },
 
             DomainException domainException =>

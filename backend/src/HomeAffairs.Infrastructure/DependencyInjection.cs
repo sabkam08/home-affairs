@@ -142,6 +142,10 @@ public static class DependencyInjection
             IWorkflowDefinitionRepository,
             WorkflowDefinitionRepository>();
 
+        services.AddScoped<
+            IWorkflowInstanceRepository,
+            WorkflowInstanceRepository>();
+
         services
             .AddHealthChecks()
             .AddCheck<SqlServerHealthCheck>(
