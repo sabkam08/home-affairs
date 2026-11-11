@@ -2,6 +2,8 @@ namespace HomeAffairs.Contracts.Documents;
 
 public sealed record DocumentResponse(
     Guid DocumentId,
+    Guid LogicalDocumentId,
+    int VersionNumber,
     Guid ApplicationId,
     string DocumentType,
     string FileName,

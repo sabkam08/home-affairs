@@ -4,6 +4,10 @@ public sealed class Document
 {
     public Guid DocumentId { get; init; }
 
+    public Guid LogicalDocumentId { get; init; }
+
+    public int VersionNumber { get; init; }
+
     public Guid ApplicationId { get; init; }
 
     public string DocumentType { get; init; } =

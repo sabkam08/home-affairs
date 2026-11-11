@@ -142,6 +142,8 @@ public sealed class DocumentsController(
     {
         return new DocumentResponse(
             result.DocumentId,
+            result.LogicalDocumentId,
+            result.VersionNumber,
             result.ApplicationId,
             result.DocumentType,
             result.FileName,
@@ -153,6 +155,7 @@ public sealed class DocumentsController(
             result.IsActive,
             result.CreatedAtUtc,
             result.UpdatedAtUtc,
+            
             Convert.ToBase64String(
                 result.RowVersion));
     }

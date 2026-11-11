@@ -27,8 +27,7 @@ internal sealed class UploadDocumentCommandHandler(
         }
 
         var extension =
-            Path.GetExtension(
-                request.FileName);
+            Path.GetExtension(request.FileName);
 
         if (string.IsNullOrWhiteSpace(extension)
             ||
@@ -40,11 +39,20 @@ internal sealed class UploadDocumentCommandHandler(
                 "The file extension is not supported.");
         }
 
+        var documentId =
+            Guid.NewGuid();
+
         var document =
             new Document
             {
                 DocumentId =
-                    Guid.NewGuid(),
+                    documentId,
+
+                LogicalDocumentId =
+                    documentId,
+
+                VersionNumber =
+                    1,
 
                 ApplicationId =
                     request.ApplicationId,
@@ -108,6 +116,8 @@ internal sealed class UploadDocumentCommandHandler(
     {
         return new DocumentResult(
             document.DocumentId,
+            document.LogicalDocumentId,
+            document.VersionNumber,
             document.ApplicationId,
             document.DocumentType,
             document.FileName,
