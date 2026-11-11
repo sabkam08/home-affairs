@@ -160,6 +160,10 @@ public static class DependencyInjection
             IDocumentHashProvider,
             Sha256DocumentHashProvider>();
 
+        services.AddScoped<
+            IDocumentRequirementRepository,
+            DocumentRequirementRepository>();
+
         services
             .AddHealthChecks()
             .AddCheck<SqlServerHealthCheck>(
