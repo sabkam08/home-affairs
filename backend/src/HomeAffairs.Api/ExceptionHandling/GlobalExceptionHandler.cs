@@ -374,6 +374,34 @@ public sealed class GlobalExceptionHandler(
                         invalidDocument.Message
                 },
 
+            DuplicateDocumentContentException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+
+                    Title =
+                        "Duplicate document content",
+
+                    Detail =
+                        "The uploaded file is identical to " +
+                        "the latest document version."
+                },
+
+            DocumentConflictException
+                documentConflictException =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status409Conflict,
+
+                        Title =
+                            "Document conflict",
+
+                        Detail =
+                            documentConflictException.Message
+                    },
+
             DomainException domainException =>
                 new ProblemDetails
                 {

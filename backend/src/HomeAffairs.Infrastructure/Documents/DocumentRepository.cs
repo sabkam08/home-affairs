@@ -56,9 +56,8 @@ internal sealed class DocumentRepository(
         {
             var record =
                 await connection
-                    .QuerySingleAsync<
-                        DocumentRecord>(
-                            command);
+                    .QuerySingleAsync<DocumentRecord>(
+                        command);
 
             return record.ToDomain();
         }
@@ -101,8 +100,7 @@ internal sealed class DocumentRepository(
         {
             var records =
                 await connection.QueryAsync<
-                    DocumentRecord>(
-                        command);
+                    DocumentRecord>(command);
 
             return records
                 .Select(record =>
@@ -151,8 +149,7 @@ internal sealed class DocumentRepository(
         var record =
             await connection
                 .QuerySingleOrDefaultAsync<
-                    DocumentRecord>(
-                        command);
+                    DocumentRecord>(command);
 
         return record?.ToDomain();
     }
@@ -191,9 +188,193 @@ internal sealed class DocumentRepository(
         var record =
             await connection
                 .QuerySingleOrDefaultAsync<
-                    DocumentContentRecord>(
-                        command);
+                    DocumentContentRecord>(command);
 
         return record?.ToDomain();
+    }
+
+    public async Task<Document>
+        CreateVersionForApplicantAsync(
+            Guid documentId,
+            Document newVersion,
+            byte[] content,
+            Guid userId,
+            byte[] expectedRowVersion,
+            CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command =
+            new CommandDefinition(
+                commandText:
+                    "[documents].Document_CreateVersionForApplicant",
+                parameters: new
+                {
+                    DocumentId =
+                        documentId,
+
+                    NewDocumentId =
+                        newVersion.DocumentId,
+
+                    newVersion.ApplicationId,
+
+                    UserId =
+                        userId,
+
+                    newVersion.FileName,
+                    newVersion.ContentType,
+                    newVersion.FileExtension,
+                    newVersion.FileSizeBytes,
+                    newVersion.ContentHash,
+
+                    Content =
+                        content,
+
+                    ExpectedRowVersion =
+                        expectedRowVersion,
+
+                    CreatedAtUtc =
+                        newVersion.CreatedAtUtc.UtcDateTime
+                },
+                commandType:
+                    CommandType.StoredProcedure,
+                cancellationToken:
+                    cancellationToken);
+
+        try
+        {
+            var record =
+                await connection
+                    .QuerySingleAsync<DocumentRecord>(
+                        command);
+
+            return record.ToDomain();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53201)
+        {
+            throw new
+                DocumentNotFoundPersistenceException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53202)
+        {
+            throw new
+                DuplicateDocumentContentPersistenceException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53203)
+        {
+            throw new
+                DocumentConcurrencyPersistenceException();
+        }
+    }
+
+    public async Task<IReadOnlyCollection<Document>>
+        GetVersionHistoryForApplicantAsync(
+            Guid documentId,
+            Guid applicationId,
+            Guid userId,
+            CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command =
+            new CommandDefinition(
+                commandText:
+                    "[documents].Document_GetVersionHistoryForApplicant",
+                parameters: new
+                {
+                    DocumentId =
+                        documentId,
+
+                    ApplicationId =
+                        applicationId,
+
+                    UserId =
+                        userId
+                },
+                commandType:
+                    CommandType.StoredProcedure,
+                cancellationToken:
+                    cancellationToken);
+
+        try
+        {
+            var records =
+                await connection.QueryAsync<
+                    DocumentRecord>(command);
+
+            return records
+                .Select(record =>
+                    record.ToDomain())
+                .ToArray();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53201)
+        {
+            throw new
+                DocumentNotFoundPersistenceException();
+        }
+    }
+
+    public async Task DeactivateForApplicantAsync(
+        Guid documentId,
+        Guid applicationId,
+        Guid userId,
+        byte[] expectedRowVersion,
+        DateTimeOffset deactivatedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
+
+        var command =
+            new CommandDefinition(
+                commandText:
+                    "[documents].Document_DeactivateForApplicant",
+                parameters: new
+                {
+                    DocumentId =
+                        documentId,
+
+                    ApplicationId =
+                        applicationId,
+
+                    UserId =
+                        userId,
+
+                    ExpectedRowVersion =
+                        expectedRowVersion,
+
+                    DeactivatedAtUtc =
+                        deactivatedAtUtc.UtcDateTime
+                },
+                commandType:
+                    CommandType.StoredProcedure,
+                cancellationToken:
+                    cancellationToken);
+
+        try
+        {
+            await connection.ExecuteAsync(command);
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53201)
+        {
+            throw new
+                DocumentNotFoundPersistenceException();
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53203)
+        {
+            throw new
+                DocumentConcurrencyPersistenceException();
+        }
     }
 }

@@ -28,4 +28,27 @@ public interface IDocumentRepository
             Guid applicationId,
             Guid userId,
             CancellationToken cancellationToken);
+
+    Task<Document> CreateVersionForApplicantAsync(
+        Guid documentId,
+        Document newVersion,
+        byte[] content,
+        Guid userId,
+        byte[] expectedRowVersion,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<Document>>
+        GetVersionHistoryForApplicantAsync(
+            Guid documentId,
+            Guid applicationId,
+            Guid userId,
+            CancellationToken cancellationToken);
+
+    Task DeactivateForApplicantAsync(
+        Guid documentId,
+        Guid applicationId,
+        Guid userId,
+        byte[] expectedRowVersion,
+        DateTimeOffset deactivatedAtUtc,
+        CancellationToken cancellationToken);
 }
