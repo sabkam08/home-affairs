@@ -9,6 +9,7 @@ using HomeAffairs.Application.Identity.Refresh;
 using HomeAffairs.Application.Applications;
 using HomeAffairs.Application.Applications.Approval;
 using HomeAffairs.Application.Abstractions.Applications;
+using HomeAffairs.Application.Documents;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -350,6 +351,28 @@ public sealed class GlobalExceptionHandler(
                         Detail =
                             workflowStateMismatchException.Message
                     },
+
+            DocumentNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Document not found",
+                    Detail =
+                        "The document could not be found."
+                },
+
+            InvalidDocumentException invalidDocument =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status400BadRequest,
+                    Title =
+                        "Invalid document",
+                    Detail =
+                        invalidDocument.Message
+                },
 
             DomainException domainException =>
                 new ProblemDetails

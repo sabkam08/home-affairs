@@ -4,6 +4,8 @@ using HomeAffairs.Application.Abstractions.Time;
 using HomeAffairs.Application.Abstractions.Citizens;
 using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Application.Abstractions.Workflow;
+using HomeAffairs.Application.Abstractions.Documents;
+using HomeAffairs.Infrastructure.Documents;
 using HomeAffairs.Infrastructure.Workflow;
 using HomeAffairs.Infrastructure.Applications;
 using HomeAffairs.Infrastructure.Citizens;
@@ -149,6 +151,14 @@ public static class DependencyInjection
         services.AddScoped<
             IWorkflowWorkItemRepository,
             WorkflowWorkItemRepository>();
+
+        services.AddScoped<
+            IDocumentRepository,
+            DocumentRepository>();
+
+        services.AddSingleton<
+            IDocumentHashProvider,
+            Sha256DocumentHashProvider>();
 
         services
             .AddHealthChecks()
