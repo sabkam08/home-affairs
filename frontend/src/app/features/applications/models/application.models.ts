@@ -32,6 +32,16 @@ export interface CancelApplicationRequest {
   reason: string;
 }
 
+export interface ApplicationStatusHistoryResponse {
+  applicationStatusHistoryId: string;
+  applicationId: string;
+  fromStatus: string;
+  toStatus: string;
+  changedByUserId: string;
+  reason: string;
+  changedAtUtc: string;
+}
+
 export const APPLICATION_TYPES = [
   {
     code: 'BIRTH_REGISTRATION',

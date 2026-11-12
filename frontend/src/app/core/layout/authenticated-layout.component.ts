@@ -36,10 +36,11 @@ import { AuthService } from '../auth/auth.service';
             </div>
 
             <div>
-              <p class="font-semibold text-slate-950">
+              <p class="font-semibold text-white">
                 Home Affairs
               </p>
-              <p class="text-xs text-slate-500">
+
+              <p class="text-xs text-[#d6eadb]">
                 Citizen services portal
               </p>
             </div>
@@ -48,11 +49,11 @@ import { AuthService } from '../auth/auth.service';
           <div class="flex items-center gap-4">
             @if (auth.currentUser(); as user) {
               <div class="hidden text-right sm:block">
-                <p class="text-sm font-medium text-slate-800">
+                <p class="text-sm font-medium text-white">
                   {{ user.email || 'Signed in user' }}
                 </p>
 
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-[#d6eadb]">
                   {{ user.role || 'Authenticated' }}
                 </p>
               </div>
@@ -85,40 +86,13 @@ import { AuthService } from '../auth/auth.service';
               Applications
             </a>
 
-            @if (
-              auth.hasAnyPermission(
-                'APPLICATION.PROCESS',
-                'APPLICATION.READ_ALL'
-              )
-            ) {
-              <a
-                routerLink="/work"
-                routerLinkActive="bg-[#d6eadb] text-[#173b26]"
-                class="block rounded-lg px-4 py-3 text-sm
-                       font-medium text-[#dceee0] hover:bg-[#285c3a]">
-                Work queue
-              </a>
-            }
-
-            @if (auth.hasPermission('APPLICATION.APPROVE')) {
-              <a
-                routerLink="/approvals"
-                routerLinkActive="bg-[#d6eadb] text-[#173b26]"
-                class="block rounded-lg px-4 py-3 text-sm
-                       font-medium text-[#dceee0] hover:bg-[#285c3a]">
-                Approvals
-              </a>
-            }
-
-            @if (auth.hasPermission('APPLICATION.READ_ALL')) {
-              <a
-                routerLink="/search"
-                routerLinkActive="bg-[#d6eadb] text-[#173b26]"
-                class="block rounded-lg px-4 py-3 text-sm
-                       font-medium text-[#dceee0] hover:bg-[#285c3a]">
-                Search
-              </a>
-            }
+            <a
+              routerLink="/profile"
+              routerLinkActive="bg-[#d6eadb] text-[#173b26]"
+              class="block rounded-lg px-4 py-3 text-sm
+                     font-medium text-[#dceee0] hover:bg-[#285c3a]">
+              My profile
+            </a>
           </nav>
         </aside>
 

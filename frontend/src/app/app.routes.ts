@@ -8,6 +8,7 @@ import { NotFoundComponent } from './features/identity/not-found/not-found.compo
 import { MyApplicationsComponent } from './features/applications/pages/my-applications.component';
 import { CreateApplicationComponent } from './features/applications/pages/create-application.component';
 import { ApplicationDetailsComponent } from './features/applications/pages/application-details.component';
+import { ProfileComponent } from './features/identity/profile/profile.component';
 
 export const routes: Routes = [
   {
@@ -41,6 +42,11 @@ export const routes: Routes = [
         path: 'applications/:applicationId',
         component: ApplicationDetailsComponent,
         title: 'Application details | Home Affairs'
+      },
+      {
+        path: 'profile',
+        component: ProfileComponent,
+        title: 'My profile | Home Affairs'
       }
     ]
   },

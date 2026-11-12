@@ -16,17 +16,21 @@ import { finalize } from 'rxjs';
 import { ApplicationApiService } from '../services/application-api.service';
 import {
   ApplicationResponse,
+  ApplicationStatusHistoryResponse,
+  APPLICATION_TYPES,
   applicationTypeLabel
 } from '../models/application.models';
 import { ErrorService } from '../../../core/api/error.service';
 import { ApiError } from '../../../core/api/api-error';
+import { ApplicationDocumentsComponent } from '../../documents/components/application-documents.component';
 
 @Component({
   selector: 'app-application-details',
   standalone: true,
   imports: [
     DatePipe,
-    FormsModule
+    FormsModule,
+    ApplicationDocumentsComponent
   ],
   template: `
     @if (loading()) {
@@ -147,6 +151,25 @@ import { ApiError } from '../../../core/api/api-error';
 
           @if (item.status === 'DRAFT') {
             <div class="mt-5 space-y-3">
+              <label class="block text-left">
+                <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Service
+                </span>
+                <select
+                  [(ngModel)]="draftType"
+                  class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                  @for (type of applicationTypes; track type.code) {
+                    <option [value]="type.code">{{ type.label }}</option>
+                  }
+                </select>
+              </label>
+              <button
+                type="button"
+                (click)="saveDraft()"
+                [disabled]="mutating() || draftType === item.applicationType"
+                class="w-full rounded-xl border border-[#2f7b4b] px-4 py-3 font-medium text-[#1f5132] disabled:opacity-50">
+                Save draft changes
+              </button>
               <button
                 type="button"
                 (click)="submitApplication()"
@@ -184,13 +207,31 @@ import { ApiError } from '../../../core/api/api-error';
       </div>
 
       <section class="mt-6">
-        <h2 class="text-xl font-semibold text-slate-950">
-          Documents
-        </h2>
+        <app-application-documents [applicationId]="item.applicationId" />
+      </section>
 
-        <p class="mt-2 text-sm text-slate-500">
-          Document management is provided by Frontend 1C below.
-        </p>
+      <section class="mt-8 rounded-2xl border border-[#d8d2c4] bg-white p-6 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-950">Status history</h2>
+        @if (historyLoading()) {
+          <p class="mt-4 text-sm text-slate-500">Loading status history...</p>
+        } @else if (history().length === 0) {
+          <p class="mt-4 text-sm text-slate-500">No status changes recorded yet.</p>
+        } @else {
+          <ol class="mt-5 space-y-5 border-l border-[#b7d9c2] pl-5">
+            @for (event of history(); track event.applicationStatusHistoryId) {
+              <li class="relative">
+                <span class="absolute -left-[1.65rem] top-1 h-3 w-3 rounded-full bg-[#2f7b4b] ring-4 ring-[#edf6ee]"></span>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <p class="font-medium text-slate-900">
+                    {{ event.fromStatus }} → {{ event.toStatus }}
+                  </p>
+                  <time class="text-xs text-slate-500">{{ event.changedAtUtc | date:'medium' }}</time>
+                </div>
+                <p class="mt-1 text-sm text-slate-600">{{ event.reason }}</p>
+              </li>
+            }
+          </ol>
+        }
       </section>
     }
   `
@@ -207,16 +248,25 @@ export class ApplicationDetailsComponent {
   readonly loading = signal(true);
   readonly mutating = signal(false);
   readonly error = signal<ApiError | null>(null);
+  readonly history = signal<ApplicationStatusHistoryResponse[]>([]);
+  readonly historyLoading = signal(true);
 
   readonly label = applicationTypeLabel;
+  readonly applicationTypes = APPLICATION_TYPES;
 
   cancelReason = '';
+  draftType = '';
 
   private readonly applicationId =
     this.route.snapshot.paramMap.get('applicationId')!;
 
   constructor() {
     this.reload();
+    this.api.getHistory(this.applicationId).subscribe({
+      next: history => this.history.set(history),
+      error: () => this.historyLoading.set(false),
+      complete: () => this.historyLoading.set(false)
+    });
   }
 
   reload(): void {
@@ -229,7 +279,7 @@ export class ApplicationDetailsComponent {
       )
       .subscribe({
         next: application =>
-          this.application.set(application),
+          (this.application.set(application), this.draftType = application.applicationType),
 
         error: error => {
           if (error.status === 404) {
@@ -242,6 +292,27 @@ export class ApplicationDetailsComponent {
           );
         }
       });
+  }
+
+  saveDraft(): void {
+    const application = this.application();
+    if (!application || !this.draftType || this.draftType === application.applicationType) {
+      return;
+    }
+
+    this.mutating.set(true);
+    this.error.set(null);
+    this.api.update(application.applicationId, {
+      applicationType: this.draftType,
+      subjectCitizenId: application.isSelfApplication ? null : application.subjectCitizenId,
+      rowVersion: application.rowVersion
+    }).pipe(finalize(() => this.mutating.set(false))).subscribe({
+      next: updated => {
+        this.application.set(updated);
+        this.draftType = updated.applicationType;
+      },
+      error: error => this.error.set(this.errorService.fromHttpError(error))
+    });
   }
 
   submitApplication(): void {

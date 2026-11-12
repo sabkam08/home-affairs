@@ -22,7 +22,8 @@ export interface DocumentRequirementStatusResponse {
   description: string;
   minimumCount: number;
   uploadedCount: number;
-  satisfied: boolean;
+  satisfied?: boolean;
+  isSatisfied?: boolean;
 }
 
 export interface DocumentReadinessResponse {
@@ -54,3 +55,17 @@ export const ACCEPTED_DOCUMENT_TYPES = [
 
 export const MAX_DOCUMENT_SIZE_BYTES =
   15 * 1024 * 1024;
+
+export function requirementSatisfied(
+  requirement: DocumentRequirementStatusResponse
+): boolean {
+  return requirement.satisfied ?? requirement.isSatisfied ?? false;
+}
+
+export function documentTypeLabel(documentType: string): string {
+  return documentType
+    .toLowerCase()
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}

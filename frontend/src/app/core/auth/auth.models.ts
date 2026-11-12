@@ -7,6 +7,7 @@ export interface LoginResponse {
   userId: string;
   accessToken: string;
 
+  accessTokenExpiresAtUtc?: string;
   expiresAtUtc?: string;
   expiresIn?: number;
   expiresInSeconds?: number;

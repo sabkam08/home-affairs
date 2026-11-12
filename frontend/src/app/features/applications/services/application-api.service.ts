@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { API_CONFIG } from '../../../core/api/api-config';
 import {
   ApplicationResponse,
+  ApplicationStatusHistoryResponse,
   CancelApplicationRequest,
   CreateApplicationRequest,
   SubmitApplicationRequest,
@@ -26,6 +27,12 @@ export class ApplicationApiService {
   getById(applicationId: string) {
     return this.http.get<ApplicationResponse>(
       `${this.config.baseUrl}/applications/${applicationId}`
+    );
+  }
+
+  getHistory(applicationId: string) {
+    return this.http.get<ApplicationStatusHistoryResponse[]>(
+      `${this.config.baseUrl}/applications/${applicationId}/history`
     );
   }
 

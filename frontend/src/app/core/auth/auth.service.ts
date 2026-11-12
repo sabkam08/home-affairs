@@ -118,6 +118,7 @@ export class AuthService {
 
   private storeLoginResponse(response: LoginResponse): void {
     const expiresAtUtc =
+      response.accessTokenExpiresAtUtc ??
       response.expiresAtUtc ??
       this.calculateExpiry(response);
 
