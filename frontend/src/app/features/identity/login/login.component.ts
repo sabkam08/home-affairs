@@ -29,15 +29,15 @@ import { ApiError } from '../../../core/api/api-error';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="min-h-screen bg-slate-950 lg:grid lg:grid-cols-2">
+    <main class="min-h-screen bg-[#173b26] lg:grid lg:grid-cols-2">
       <section
         class="hidden lg:flex flex-col justify-between p-12
-               bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900
+               bg-gradient-to-br from-[#173b26] via-[#1f5132] to-[#285c3a]
                text-white">
 
         <div>
           <div class="text-sm font-semibold tracking-[0.25em]
-                      uppercase text-blue-300">
+                      uppercase text-[#d6eadb]">
             Home Affairs
           </div>
 
@@ -63,13 +63,13 @@ import { ApiError } from '../../../core/api/api-error';
 
         <div class="w-full max-w-md">
           <div class="mb-8 lg:hidden">
-            <p class="font-semibold tracking-widest text-blue-700 uppercase">
+            <p class="font-semibold tracking-widest text-[#1f5132] uppercase">
               Home Affairs
             </p>
           </div>
 
           <div class="rounded-3xl border border-slate-200
-                      bg-white p-8 shadow-xl shadow-slate-200/50">
+                      bg-white p-8 shadow-xl shadow-[#173b26]/15">
 
             <h2 class="text-3xl font-semibold tracking-tight text-slate-950">
               Sign in
@@ -128,8 +128,8 @@ import { ApiError } from '../../../core/api/api-error';
                   formControlName="email"
                   class="mt-2 w-full rounded-xl border border-slate-300
                          bg-white px-4 py-3 outline-none
-                         focus:border-blue-600 focus:ring-4
-                         focus:ring-blue-100">
+                         focus:border-[#2f7b4b] focus:ring-4
+                         focus:ring-[#d6eadb]">
 
                 @if (
                   form.controls.email.touched &&
@@ -155,8 +155,8 @@ import { ApiError } from '../../../core/api/api-error';
                   formControlName="password"
                   class="mt-2 w-full rounded-xl border border-slate-300
                          bg-white px-4 py-3 outline-none
-                         focus:border-blue-600 focus:ring-4
-                         focus:ring-blue-100">
+                         focus:border-[#2f7b4b] focus:ring-4
+                         focus:ring-[#d6eadb]">
 
                 @if (
                   form.controls.password.touched &&
@@ -171,8 +171,8 @@ import { ApiError } from '../../../core/api/api-error';
               <button
                 type="submit"
                 [disabled]="loading()"
-                class="w-full rounded-xl bg-blue-700 px-4 py-3
-                       font-semibold text-white hover:bg-blue-800
+                class="w-full rounded-xl bg-[#1f5132] px-4 py-3
+                       font-semibold text-white hover:bg-[#285c3a]
                        disabled:opacity-50">
 
                 @if (loading()) {

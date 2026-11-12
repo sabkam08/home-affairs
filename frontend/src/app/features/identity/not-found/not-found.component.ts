@@ -7,7 +7,7 @@ import { RouterLink } from '@angular/router';
   imports: [RouterLink],
   template: `
     <main class="flex min-h-screen items-center justify-center
-                 bg-slate-50 px-6">
+                 bg-[#f5f1e8] px-6">
       <div class="max-w-lg text-center">
         <p class="text-sm font-semibold uppercase tracking-widest
                   text-slate-500">
@@ -25,7 +25,7 @@ import { RouterLink } from '@angular/router';
 
         <a
           routerLink="/applications"
-          class="mt-8 inline-flex rounded-xl bg-blue-700
+          class="mt-8 inline-flex rounded-xl bg-[#1f5132]
                  px-5 py-3 font-medium text-white">
           Return to portal
         </a>

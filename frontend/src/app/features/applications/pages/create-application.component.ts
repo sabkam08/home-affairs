@@ -41,7 +41,7 @@ import { ApiError } from '../../../core/api/api-error';
         [formGroup]="form"
         (ngSubmit)="submit()"
         class="mt-8 space-y-6 rounded-2xl border
-               border-slate-200 bg-white p-6">
+               border-[#d8d2c4] bg-white p-6 shadow-sm">
 
         <div>
           <label class="block text-sm font-medium text-slate-700">
@@ -64,7 +64,7 @@ import { ApiError } from '../../../core/api/api-error';
           </select>
         </div>
 
-        <div class="rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
+        <div class="rounded-xl bg-[#edf6ee] p-4 text-sm text-[#245535]">
           This first application flow creates an application for
           yourself. Dependant/represented-citizen selection is added
           in Frontend 2B.
@@ -73,7 +73,7 @@ import { ApiError } from '../../../core/api/api-error';
         <button
           type="submit"
           [disabled]="loading()"
-          class="rounded-xl bg-blue-700 px-5 py-3
+          class="rounded-xl bg-[#1f5132] px-5 py-3
                  font-semibold text-white disabled:opacity-50">
           {{ loading() ? 'Creating...' : 'Create draft' }}
         </button>
