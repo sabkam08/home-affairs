@@ -164,6 +164,14 @@ public static class DependencyInjection
             IDocumentRequirementRepository,
             DocumentRequirementRepository>();
 
+        services.AddScoped<
+            IDocumentTextRepository,
+            DocumentTextRepository>();
+
+        services.AddSingleton<
+            IDocumentTextExtractor,
+            DocumentTextExtractor>();
+
         services
             .AddHealthChecks()
             .AddCheck<SqlServerHealthCheck>(

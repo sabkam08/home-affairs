@@ -7,6 +7,8 @@ using HomeAffairs.Application.Documents.UploadDocument;
 using HomeAffairs.Application.Documents.CreateDocumentVersion;
 using HomeAffairs.Application.Documents.DeactivateDocument;
 using HomeAffairs.Application.Documents.GetDocumentVersions;
+using HomeAffairs.Application.Documents.ExtractDocumentText;
+using HomeAffairs.Application.Documents.SearchDocumentText;
 using HomeAffairs.Contracts.Documents;
 using HomeAffairs.Domain.Documents;
 using MediatR;
@@ -310,6 +312,85 @@ public sealed class DocumentsController(
         return NoContent();
     }
 
+    #region Document Text
+
+    [Authorize(
+    Policy =
+        AuthorizationPolicies.ApplicationCreate)]
+    [HttpPost("{documentId:guid}/extract-text")]
+    public async Task<ActionResult<DocumentTextResponse>>
+    ExtractText(
+        Guid applicationId,
+        Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new ExtractDocumentTextCommand(
+                    applicationId,
+                    documentId),
+                cancellationToken);
+
+        return Ok(MapText(result));
+    }
+
+    [HttpGet("{documentId:guid}/text")]
+    public async Task<ActionResult<DocumentTextResponse>>
+    GetText(
+        Guid applicationId,
+        Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await sender.Send(
+                new GetDocumentTextQuery(
+                    applicationId,
+                    documentId),
+                cancellationToken);
+
+        return Ok(MapText(result));
+    }
+
+    [HttpGet(
+    "/api/v1/applications/{applicationId:guid}/document-search")]
+    public async Task<
+    ActionResult<
+        IReadOnlyCollection<DocumentSearchResponse>>>
+    Search(
+        Guid applicationId,
+        [FromQuery(Name = "q")] string query,
+        CancellationToken cancellationToken)
+    {
+        var results =
+            await sender.Send(
+                new SearchDocumentTextQuery(
+                    applicationId,
+                    query),
+                cancellationToken);
+
+        return Ok(
+            results
+                .Select(result =>
+                    new DocumentSearchResponse(
+                        result.DocumentId,
+                        result.LogicalDocumentId,
+                        result.VersionNumber,
+                        result.ApplicationId,
+                        result.DocumentType,
+                        result.FileName,
+                        result.ContentType,
+                        result.FileExtension,
+                        result.FileSizeBytes,
+                        result.ContentHash,
+                        result.ExtractionStatus,
+                        result.ExtractionMethod,
+                        result.CharacterCount,
+                        result.ProcessedAtUtc))
+                .ToArray());
+    }
+    #endregion
+
+    #region Map Helpers
     private static DocumentResponse Map(
     DocumentResult result)
     {
@@ -331,6 +412,22 @@ public sealed class DocumentsController(
             Convert.ToBase64String(
                 result.RowVersion));
     }
+    private static DocumentTextResponse MapText(
+    DocumentTextResult result)
+    {
+        return new DocumentTextResponse(
+            result.DocumentId,
+            result.ApplicationId,
+            result.ExtractionStatus,
+            result.ExtractionMethod,
+            result.ExtractedText,
+            result.CharacterCount,
+            result.ProcessedAtUtc,
+            result.ErrorMessage,
+            Convert.ToBase64String(
+                result.RowVersion));
+    }
+    #endregion
 
     private static bool TryDecodeRowVersion(
     string value,
