@@ -37,20 +37,20 @@ import {
 
       <a
         routerLink="/applications/new"
-        class="rounded-xl bg-blue-700 px-5 py-3
-               font-medium text-white hover:bg-blue-800">
+        class="rounded-xl bg-[#1f5132] px-5 py-3
+               font-medium text-white hover:bg-[#285c3a]">
         New application
       </a>
     </div>
 
     @if (loading()) {
-      <div class="mt-8 rounded-2xl border border-slate-200
-                  bg-white p-8 text-slate-500">
+      <div class="mt-8 rounded-2xl border border-[#d8d2c4]
+                bg-white p-8 text-slate-500">
         Loading applications...
       </div>
     } @else if (applications().length === 0) {
       <div class="mt-8 rounded-2xl border border-dashed
-                  border-slate-300 bg-white p-12 text-center">
+                  border-[#c8c0b0] bg-white p-12 text-center">
         <h2 class="font-semibold text-slate-900">
           No applications yet
         </h2>
@@ -61,7 +61,7 @@ import {
       </div>
     } @else {
       <div class="mt-8 overflow-hidden rounded-2xl
-                  border border-slate-200 bg-white">
+                border border-[#d8d2c4] bg-white shadow-sm">
         @for (
           application of applications();
           track application.applicationId
@@ -72,7 +72,7 @@ import {
               application.applicationId
             ]"
             class="grid gap-3 border-b border-slate-100
-                   p-5 last:border-0 hover:bg-slate-50
+                   p-5 last:border-0 hover:bg-[#f3f8f2]
                    md:grid-cols-[1fr_auto]">
 
             <div>

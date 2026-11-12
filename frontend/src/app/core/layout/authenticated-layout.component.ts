@@ -20,8 +20,8 @@ import { AuthService } from '../auth/auth.service';
     RouterLinkActive
   ],
   template: `
-    <div class="min-h-screen bg-slate-50">
-      <header class="border-b border-slate-200 bg-white">
+    <div class="min-h-screen bg-[#f5f1e8]">
+      <header class="border-b border-[#285c3a] bg-[#1f5132] text-white">
         <div
           class="mx-auto flex max-w-7xl items-center justify-between
                  px-6 py-4">
@@ -31,7 +31,7 @@ import { AuthService } from '../auth/auth.service';
             class="flex items-center gap-3">
             <div
               class="flex h-10 w-10 items-center justify-center
-                     rounded-xl bg-blue-700 font-bold text-white">
+                     rounded-xl bg-[#d6eadb] font-bold text-[#1f5132]">
               HA
             </div>
 
@@ -40,7 +40,7 @@ import { AuthService } from '../auth/auth.service';
                 Home Affairs
               </p>
               <p class="text-xs text-slate-500">
-                Application Portal
+                Citizen services portal
               </p>
             </div>
           </a>
@@ -61,9 +61,9 @@ import { AuthService } from '../auth/auth.service';
             <button
               type="button"
               (click)="logout()"
-              class="rounded-lg border border-slate-300
-                     px-4 py-2 text-sm font-medium text-slate-700
-                     hover:bg-slate-100">
+              class="rounded-lg border border-[#8fc5a1]
+                     px-4 py-2 text-sm font-medium text-white
+                     hover:bg-[#285c3a]">
               Sign out
             </button>
           </div>
@@ -72,16 +72,16 @@ import { AuthService } from '../auth/auth.service';
 
       <div class="mx-auto grid max-w-7xl lg:grid-cols-[240px_1fr]">
         <aside
-          class="border-r border-slate-200 bg-white
+          class="border-r border-[#285c3a] bg-[#173b26]
                  px-4 py-6 lg:min-h-[calc(100vh-73px)]">
 
-          <nav class="space-y-1">
+          <nav aria-label="Main navigation" class="space-y-2">
             <a
               routerLink="/applications"
-              routerLinkActive="bg-blue-50 text-blue-700"
+              routerLinkActive="bg-[#d6eadb] text-[#173b26]"
               [routerLinkActiveOptions]="{ exact: false }"
               class="block rounded-lg px-4 py-3 text-sm
-                     font-medium text-slate-700 hover:bg-slate-100">
+                     font-medium text-[#dceee0] hover:bg-[#285c3a]">
               Applications
             </a>
 
@@ -93,9 +93,9 @@ import { AuthService } from '../auth/auth.service';
             ) {
               <a
                 routerLink="/work"
-                routerLinkActive="bg-blue-50 text-blue-700"
+                routerLinkActive="bg-[#d6eadb] text-[#173b26]"
                 class="block rounded-lg px-4 py-3 text-sm
-                       font-medium text-slate-700 hover:bg-slate-100">
+                       font-medium text-[#dceee0] hover:bg-[#285c3a]">
                 Work queue
               </a>
             }
@@ -103,9 +103,9 @@ import { AuthService } from '../auth/auth.service';
             @if (auth.hasPermission('APPLICATION.APPROVE')) {
               <a
                 routerLink="/approvals"
-                routerLinkActive="bg-blue-50 text-blue-700"
+                routerLinkActive="bg-[#d6eadb] text-[#173b26]"
                 class="block rounded-lg px-4 py-3 text-sm
-                       font-medium text-slate-700 hover:bg-slate-100">
+                       font-medium text-[#dceee0] hover:bg-[#285c3a]">
                 Approvals
               </a>
             }
@@ -113,9 +113,9 @@ import { AuthService } from '../auth/auth.service';
             @if (auth.hasPermission('APPLICATION.READ_ALL')) {
               <a
                 routerLink="/search"
-                routerLinkActive="bg-blue-50 text-blue-700"
+                routerLinkActive="bg-[#d6eadb] text-[#173b26]"
                 class="block rounded-lg px-4 py-3 text-sm
-                       font-medium text-slate-700 hover:bg-slate-100">
+                       font-medium text-[#dceee0] hover:bg-[#285c3a]">
                 Search
               </a>
             }

@@ -7,8 +7,8 @@ body {
 
 body {
   margin: 0;
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f5f1e8;
+  color: #17231c;
   font-family:
     Inter,
     ui-sans-serif,
@@ -33,4 +33,14 @@ textarea {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+::selection {
+  background: #b7d9c2;
+  color: #123524;
+}
+
+:focus-visible {
+  outline: 3px solid #8fc5a1;
+  outline-offset: 2px;
 }

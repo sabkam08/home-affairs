@@ -38,7 +38,7 @@ import { ApiError } from '../../../core/api/api-error';
                   justify-between gap-4">
         <div>
           <p class="text-sm font-medium uppercase
-                    tracking-wider text-blue-700">
+                    tracking-wider text-[#2f7b4b]">
             {{ item.applicationNumber }}
           </p>
 
@@ -151,7 +151,7 @@ import { ApiError } from '../../../core/api/api-error';
                 type="button"
                 (click)="submitApplication()"
                 [disabled]="mutating()"
-                class="w-full rounded-xl bg-blue-700
+                class="w-full rounded-xl bg-[#1f5132]
                        px-4 py-3 font-medium text-white
                        disabled:opacity-50">
                 Submit application
