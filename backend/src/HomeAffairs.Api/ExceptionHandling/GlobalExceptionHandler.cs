@@ -451,6 +451,20 @@ public sealed class GlobalExceptionHandler(
                         "by another request. Reload them and try again."
                 },
 
+            ApplicationSubmissionNotReadyException
+                submissionNotReady =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status409Conflict,
+
+                        Title =
+                            "Application is not ready for submission",
+
+                        Detail =
+                            submissionNotReady.Message
+                    },
+
             DomainException domainException =>
                 new ProblemDetails
                 {

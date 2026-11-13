@@ -286,6 +286,28 @@ internal sealed class ApplicationRepository(
             throw new
                 ApplicationConcurrencyException();
         }
+        catch (SqlException exception)
+            when (exception.Number == 53601)
+        {
+            throw new
+                ApplicationSubmissionNotReadyPersistenceException(
+                    "Birth service details are required " +
+                    "before submission.");
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53602)
+        {
+            throw new
+                ApplicationSubmissionNotReadyPersistenceException(
+                    exception.Message);
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53603)
+        {
+            throw new
+                ApplicationSubmissionNotReadyPersistenceException(
+                    "One or more required documents are missing.");
+        }
     }
 
     public async Task<HomeAffairsApplication>

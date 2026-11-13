@@ -14,6 +14,10 @@ namespace HomeAffairs.IntegrationTests.Birth;
 public sealed class BirthServiceTests(
     HomeAffairsApiFactory factory)
 {
+    private static readonly byte[] TestPng =
+    Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
     [Fact]
     public async Task Applicant_should_save_birth_registration_details()
     {
@@ -339,6 +343,24 @@ public sealed class BirthServiceTests(
                 .ReadFromJsonAsync<
                     BirthServiceDetailsResponse>();
 
+        saved.Should().NotBeNull();
+
+        /*
+            BIRTH_REGISTRATION requires:
+                IDENTITY_DOCUMENT
+                PROOF_OF_ADDRESS
+        */
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
         var submitRequest =
             Authenticated(
                 HttpMethod.Post,
@@ -372,6 +394,441 @@ public sealed class BirthServiceTests(
             .Be(HttpStatusCode.Conflict);
     }
 
+    [Fact]
+    public async Task Birth_application_without_details_should_not_submit()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_REGISTRATION");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Birth_application_with_complete_details_but_missing_documents_should_not_submit()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_REGISTRATION");
+
+        var details =
+            await SaveAsync(
+                setup.Identity.AccessToken,
+                setup.Application.ApplicationId,
+                CreateRequest());
+
+        details.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Birth_application_with_only_one_required_document_should_not_submit()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_REGISTRATION");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_birth_registration_should_submit()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_REGISTRATION");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var submitted =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ApplicationResponse>();
+
+        submitted.Should().NotBeNull();
+
+        submitted!.Status
+            .Should()
+            .Be("SUBMITTED");
+    }
+
+    [Fact]
+    public async Task Failed_birth_submission_should_leave_application_and_workflow_in_draft()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_REGISTRATION");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+
+        var applicationStatus =
+            await factory.QueryScalarAsync<string>(
+                $"""
+             SELECT Status
+             FROM [applications].Applications
+             WHERE ApplicationId =
+                 '{setup.Application.ApplicationId}';
+             """);
+
+        applicationStatus
+            .Should()
+            .Be("DRAFT");
+
+        var workflowStatus =
+            await factory.QueryScalarAsync<string>(
+                $"""
+             SELECT CurrentStateCode
+             FROM [workflow].WorkflowInstances
+             WHERE ApplicationId =
+                 '{setup.Application.ApplicationId}';
+             """);
+
+        workflowStatus
+            .Should()
+            .Be("DRAFT");
+    }
+
+    [Fact]
+    public async Task Birth_certificate_reissue_requires_certificate_number_and_reason()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_CERTIFICATE_REISSUE");
+
+        var request =
+            new SaveBirthServiceDetailsRequest(
+                ChildFirstName: null,
+                ChildMiddleNames: null,
+                ChildLastName: null,
+                ChildDateOfBirth: null,
+                ChildSex: null,
+                PlaceOfBirth: null,
+                ProvinceOfBirth: null,
+                CountryOfBirth: null,
+                MotherFirstName: null,
+                MotherLastName: null,
+                MotherIdNumber: null,
+                FatherFirstName: null,
+                FatherLastName: null,
+                FatherIdNumber: null,
+                CurrentCertificateNumber:
+                    null,
+                RequestReason:
+                    null,
+                RowVersion:
+                    null);
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            request);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_birth_certificate_reissue_should_submit()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_CERTIFICATE_REISSUE");
+
+        var request =
+            new SaveBirthServiceDetailsRequest(
+                ChildFirstName: null,
+                ChildMiddleNames: null,
+                ChildLastName: null,
+                ChildDateOfBirth: null,
+                ChildSex: null,
+                PlaceOfBirth: null,
+                ProvinceOfBirth: null,
+                CountryOfBirth: null,
+                MotherFirstName: null,
+                MotherLastName: null,
+                MotherIdNumber: null,
+                FatherFirstName: null,
+                FatherLastName: null,
+                FatherIdNumber: null,
+                CurrentCertificateNumber:
+                    "BC-TEST-2026-001",
+                RequestReason:
+                    "Certificate damaged and requires re-issue.",
+                RowVersion:
+                    null);
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            request);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Late_birth_registration_requires_reason()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "LATE_BIRTH_REGISTRATION");
+
+        var request =
+            CreateRequest();
+
+        var withoutReason =
+            request with
+            {
+                RequestReason = null
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            withoutReason);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "AFFIDAVIT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_late_birth_registration_should_submit()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "LATE_BIRTH_REGISTRATION");
+
+        var request =
+            CreateRequest() with
+            {
+                RequestReason =
+                    "Birth was not registered within the normal process."
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            request);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "AFFIDAVIT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Birth_certificate_amendment_requires_certificate_number_and_reason()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_CERTIFICATE_AMENDMENT");
+
+        var request =
+            CreateRequest() with
+            {
+                CurrentCertificateNumber =
+                    null,
+
+                RequestReason =
+                    null
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            request);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "BIRTH_CERTIFICATE");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_birth_certificate_amendment_should_submit()
+    {
+        var setup =
+            await CreateBirthApplicationAsync(
+                "BIRTH_CERTIFICATE_AMENDMENT");
+
+        var request =
+            CreateRequest() with
+            {
+                CurrentCertificateNumber =
+                    "BC-AMEND-2026-001",
+
+                RequestReason =
+                    "Correction required to certificate details."
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            request);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "BIRTH_CERTIFICATE");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
     private sealed record Setup(
         TestAuthenticationResponse Identity,
         ApplicationResponse Application);
@@ -382,6 +839,71 @@ public sealed class BirthServiceTests(
     {
         return await CreateApplicationAsync(
             applicationType);
+    }
+
+    private async Task UploadDocumentAsync(
+    string token,
+    Guid applicationId,
+    string documentType)
+    {
+        using var multipart =
+            new MultipartFormDataContent();
+
+        multipart.Add(
+            new StringContent(
+                documentType),
+            "DocumentType");
+
+        var file =
+            new ByteArrayContent(
+                TestPng);
+
+        file.Headers.ContentType =
+            new MediaTypeHeaderValue(
+                "image/png");
+
+        multipart.Add(
+            file,
+            "File",
+            $"{documentType.ToLowerInvariant()}.png");
+
+        using var request =
+            Authenticated(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/documents",
+                token);
+
+        request.Content =
+            multipart;
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+    }
+
+    private async Task<HttpResponseMessage>
+    SubmitAsync(
+        Setup setup)
+    {
+        var request =
+            Authenticated(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{setup.Application.ApplicationId}/submit",
+                setup.Identity.AccessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new ApplicationActionRequest(
+                    setup.Application.RowVersion));
+
+        return await factory.Client.SendAsync(
+            request);
     }
 
     private async Task<Setup>

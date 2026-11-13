@@ -51,5 +51,13 @@ internal sealed class SubmitApplicationCommandHandler(
             throw new InvalidApplicationStateException(
                 "Only draft applications may be submitted.");
         }
+        catch (
+            ApplicationSubmissionNotReadyPersistenceException
+                exception)
+        {
+            throw new
+                ApplicationSubmissionNotReadyException(
+                    exception.Message);
+        }
     }
 }
