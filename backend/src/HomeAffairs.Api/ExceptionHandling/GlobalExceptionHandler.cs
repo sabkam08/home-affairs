@@ -10,6 +10,7 @@ using HomeAffairs.Application.Applications;
 using HomeAffairs.Application.Applications.Approval;
 using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Application.Documents;
+using HomeAffairs.Application.Birth;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -401,6 +402,54 @@ public sealed class GlobalExceptionHandler(
                         Detail =
                             documentConflictException.Message
                     },
+
+            BirthServiceApplicationNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+                    Title =
+                        "Birth application not found",
+                    Detail =
+                        "The Birth service application " +
+                        "could not be found."
+                },
+
+            InvalidBirthServiceApplicationException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Invalid Birth service application",
+                    Detail =
+                        "The application is not a supported " +
+                        "Birth service application."
+                },
+
+            BirthServiceDetailsNotEditableException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Birth details cannot be edited",
+                    Detail =
+                        "Birth service details may only be " +
+                        "modified while the application is a draft."
+                },
+
+            BirthServiceDetailsConflictException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+                    Title =
+                        "Birth details conflict",
+                    Detail =
+                        "The Birth service details were modified " +
+                        "by another request. Reload them and try again."
+                },
 
             DomainException domainException =>
                 new ProblemDetails

@@ -5,6 +5,8 @@ using HomeAffairs.Application.Abstractions.Citizens;
 using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Application.Abstractions.Workflow;
 using HomeAffairs.Application.Abstractions.Documents;
+using HomeAffairs.Application.Abstractions.Birth;
+using HomeAffairs.Infrastructure.Birth;
 using HomeAffairs.Infrastructure.Documents;
 using HomeAffairs.Infrastructure.Workflow;
 using HomeAffairs.Infrastructure.Applications;
@@ -171,6 +173,10 @@ public static class DependencyInjection
         services.AddSingleton<
             IDocumentTextExtractor,
             DocumentTextExtractor>();
+
+        services.AddScoped<
+            IBirthServiceRepository,
+            BirthServiceRepository>();
 
         services
             .AddHealthChecks()
