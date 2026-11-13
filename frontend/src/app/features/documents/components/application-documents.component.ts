@@ -240,6 +240,16 @@ export class ApplicationDocumentsComponent {
   download(file: DocumentResponse): void {
     this.api.download(this.applicationId, file.documentId).subscribe({
       next: response => {
+        if (!response.body) {
+          this.error.set({
+            status: 500,
+            title: 'Download failed',
+            message: 'The document content was empty.',
+            validationErrors: {}
+          });
+          return;
+        }
+
         const url = URL.createObjectURL(response.body);
         const anchor = window.document.createElement('a');
         anchor.href = url;
