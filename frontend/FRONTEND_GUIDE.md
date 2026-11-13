@@ -51,3 +51,7 @@ npm test
 ## Current screen coverage
 
 Implemented citizen screens cover authentication, applications, draft editing, submission/cancellation, document readiness and versioning, status history, and profile viewing. Staff work queue, supervisor approval, assignment, and global search screens should be added when those operational workflows are enabled for the frontend.
+
+HomeAffairsDb
+HomeAffairs_Local_2026!
+/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C

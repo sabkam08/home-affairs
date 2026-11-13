@@ -31,6 +31,8 @@ builder.Host.UseSerilog((context, services, configuration) =>
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
+
+
 builder.Services.AddScoped<
     IRequestContext,
     HttpRequestContext>();
@@ -240,6 +242,20 @@ builder.Services
             .AddHttpClientInstrumentation();
     });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "Frontend",
+        policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:4200")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -260,7 +276,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseSerilogRequestLogging();
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
