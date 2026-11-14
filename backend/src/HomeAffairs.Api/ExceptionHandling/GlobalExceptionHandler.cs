@@ -11,6 +11,7 @@ using HomeAffairs.Application.Applications.Approval;
 using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Application.Documents;
 using HomeAffairs.Application.Birth;
+using HomeAffairs.Application.SmartId;
 using HomeAffairs.Domain.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -464,6 +465,62 @@ public sealed class GlobalExceptionHandler(
                         Detail =
                             submissionNotReady.Message
                     },
+
+            SmartIdServiceApplicationNotFoundException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status404NotFound,
+
+                    Title =
+                        "Smart ID application not found",
+
+                    Detail =
+                        "The Smart ID service application " +
+                        "could not be found."
+                },
+
+            InvalidSmartIdServiceApplicationException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+
+                    Title =
+                        "Invalid Smart ID service application",
+
+                    Detail =
+                        "The application is not a supported " +
+                        "Smart ID service application."
+                },
+
+            SmartIdServiceDetailsNotEditableException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+
+                    Title =
+                        "Smart ID details cannot be edited",
+
+                    Detail =
+                        "Smart ID service details may only be " +
+                        "modified while the application is a draft."
+                },
+
+            SmartIdServiceDetailsConflictException =>
+                new ProblemDetails
+                {
+                    Status =
+                        StatusCodes.Status409Conflict,
+
+                    Title =
+                        "Smart ID details conflict",
+
+                    Detail =
+                        "The Smart ID service details were modified " +
+                        "by another request. Reload them and try again."
+                },
 
             DomainException domainException =>
                 new ProblemDetails

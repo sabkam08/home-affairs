@@ -6,6 +6,8 @@ using HomeAffairs.Application.Abstractions.Applications;
 using HomeAffairs.Application.Abstractions.Workflow;
 using HomeAffairs.Application.Abstractions.Documents;
 using HomeAffairs.Application.Abstractions.Birth;
+using HomeAffairs.Application.Abstractions.SmartId;
+using HomeAffairs.Infrastructure.SmartId;
 using HomeAffairs.Infrastructure.Birth;
 using HomeAffairs.Infrastructure.Documents;
 using HomeAffairs.Infrastructure.Workflow;
@@ -177,6 +179,10 @@ public static class DependencyInjection
         services.AddScoped<
             IBirthServiceRepository,
             BirthServiceRepository>();
+
+        services.AddScoped<
+            ISmartIdServiceRepository,
+            SmartIdServiceRepository>();
 
         services
             .AddHealthChecks()
