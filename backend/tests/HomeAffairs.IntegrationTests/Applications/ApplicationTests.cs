@@ -1616,13 +1616,22 @@ public sealed class ApplicationTests(
     [Fact]
     public async Task Search_should_apply_database_paging()
     {
-        var citizen =
-            await CreateAdultCitizenAsync();
+        /*
+            Create five Applications using different Citizens.
 
+            This deliberately respects the Smart ID invariant:
+            one active Smart ID Application per SubjectCitizenId.
+
+            The test is about paging, not duplicate Smart ID
+            business-rule validation.
+        */
         for (var index = 0;
              index < 5;
              index++)
         {
+            var citizen =
+                await CreateAdultCitizenAsync();
+
             var response =
                 await CreateApplicationAsync(
                     citizen.AccessToken,
@@ -1642,12 +1651,16 @@ public sealed class ApplicationTests(
         var pageOne =
             await SearchAsync(
                 supervisor.AccessToken,
-                "pageNumber=1&pageSize=2");
+                "applicationType=" +
+                "SMART_ID_CORRECTION" +
+                "&pageNumber=1&pageSize=2");
 
         var pageTwo =
             await SearchAsync(
                 supervisor.AccessToken,
-                "pageNumber=2&pageSize=2");
+                "applicationType=" +
+                "SMART_ID_CORRECTION" +
+                "&pageNumber=2&pageSize=2");
 
         pageOne.PageNumber
             .Should()
@@ -1661,6 +1674,10 @@ public sealed class ApplicationTests(
             .Should()
             .Be(2);
 
+        pageTwo.PageSize
+            .Should()
+            .Be(2);
+
         pageOne.Items
             .Should()
             .HaveCount(2);
@@ -1668,6 +1685,18 @@ public sealed class ApplicationTests(
         pageTwo.Items
             .Should()
             .HaveCount(2);
+
+        pageOne.Items
+            .Should()
+            .OnlyContain(application =>
+                application.ApplicationType ==
+                "SMART_ID_CORRECTION");
+
+        pageTwo.Items
+            .Should()
+            .OnlyContain(application =>
+                application.ApplicationType ==
+                "SMART_ID_CORRECTION");
 
         pageOne.Items
             .Select(application =>
@@ -1680,6 +1709,10 @@ public sealed class ApplicationTests(
         pageOne.TotalCount
             .Should()
             .Be(pageTwo.TotalCount);
+
+        pageOne.TotalCount
+            .Should()
+            .BeGreaterThanOrEqualTo(5);
 
         pageOne.TotalPages
             .Should()
