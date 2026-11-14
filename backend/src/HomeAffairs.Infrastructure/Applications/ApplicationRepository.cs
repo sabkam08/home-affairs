@@ -314,6 +314,29 @@ internal sealed class ApplicationRepository(
                 ApplicationSubmissionNotReadyPersistenceException(
                     "One or more required documents are missing.");
         }
+        catch (SqlException exception)
+            when (exception.Number == 53901)
+        {
+            throw new
+                ApplicationSubmissionNotReadyPersistenceException(
+                    "Smart ID service details are required " +
+                    "before submission.");
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53902)
+        {
+            throw new
+                ApplicationSubmissionNotReadyPersistenceException(
+                    exception.Message);
+        }
+        catch (SqlException exception)
+            when (exception.Number == 53903)
+        {
+            throw new
+                ApplicationSubmissionNotReadyPersistenceException(
+                    "One or more required Smart ID " +
+                    "documents are missing.");
+        }
     }
 
     public async Task<HomeAffairsApplication>

@@ -14,6 +14,10 @@ namespace HomeAffairs.IntegrationTests.SmartId;
 public sealed class SmartIdServiceTests(
     HomeAffairsApiFactory factory)
 {
+    private static readonly byte[] TestPng =
+    Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
     [Theory]
     [InlineData("SMART_ID_NEW")]
     [InlineData("SMART_ID_REPLACEMENT_LOST")]
@@ -364,10 +368,20 @@ public sealed class SmartIdServiceTests(
         saved.Should().NotBeNull();
 
         /*
-            Smart ID submission validation is introduced
-            in 11C, so current generic submission remains
-            available in 11A.
+            SMART_ID_CORRECTION requires:
+                IDENTITY_DOCUMENT
+                SUPPORTING_DOCUMENT
         */
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "SUPPORTING_DOCUMENT");
 
         using var submitRequest =
             Authenticated(
@@ -730,6 +744,450 @@ public sealed class SmartIdServiceTests(
             .Be(1);
     }
 
+    [Fact]
+    public async Task Smart_id_application_without_service_details_should_not_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_CORRECTION");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "SUPPORTING_DOCUMENT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Smart_id_with_complete_details_but_missing_documents_should_not_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_CORRECTION");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Failed_smart_id_submission_should_leave_application_and_workflow_in_draft()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_CORRECTION");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+
+        var applicationStatus =
+            await factory.QueryScalarAsync<string>(
+                $"""
+             SELECT Status
+             FROM [applications].Applications
+             WHERE ApplicationId =
+                 '{setup.Application.ApplicationId}';
+             """);
+
+        applicationStatus
+            .Should()
+            .Be("DRAFT");
+
+        var workflowStatus =
+            await factory.QueryScalarAsync<string>(
+                $"""
+             SELECT CurrentStateCode
+             FROM [workflow].WorkflowInstances
+             WHERE ApplicationId =
+                 '{setup.Application.ApplicationId}';
+             """);
+
+        workflowStatus
+            .Should()
+            .Be("DRAFT");
+    }
+
+    [Fact]
+    public async Task Complete_new_smart_id_application_should_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_NEW");
+
+        var details =
+            CreateRequest() with
+            {
+                ExistingSmartIdNumber = null,
+
+                ReplacementReason = null,
+
+                IncidentDate = null,
+
+                PoliceCaseNumber = null,
+
+                PoliceStation = null,
+
+                DamageDescription = null,
+
+                CorrectionField = null,
+
+                CurrentValue = null,
+
+                RequestedValue = null,
+
+                RequestReason = null
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            details);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var submitted =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ApplicationResponse>();
+
+        submitted.Should().NotBeNull();
+
+        submitted!.Status
+            .Should()
+            .Be("SUBMITTED");
+    }
+
+    [Fact]
+    public async Task Lost_replacement_without_reason_should_not_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_REPLACEMENT_LOST");
+
+        var details =
+            CreateRequest() with
+            {
+                ReplacementReason =
+                    null
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            details);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_lost_replacement_should_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_REPLACEMENT_LOST");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Stolen_replacement_without_police_details_should_not_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_REPLACEMENT_STOLEN");
+
+        var details =
+            CreateRequest() with
+            {
+                PoliceCaseNumber = null,
+                PoliceStation = null
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            details);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "AFFIDAVIT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_stolen_replacement_should_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_REPLACEMENT_STOLEN");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "AFFIDAVIT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Damaged_replacement_without_damage_description_should_not_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_REPLACEMENT_DAMAGED");
+
+        var details =
+            CreateRequest() with
+            {
+                DamageDescription = null
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            details);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_damaged_replacement_should_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_REPLACEMENT_DAMAGED");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "PROOF_OF_ADDRESS");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Correction_without_requested_value_should_not_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_CORRECTION");
+
+        var details =
+            CreateRequest() with
+            {
+                RequestedValue = null
+            };
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            details);
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "SUPPORTING_DOCUMENT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Complete_smart_id_correction_should_submit()
+    {
+        var setup =
+            await CreateApplicationAsync(
+                "SMART_ID_CORRECTION");
+
+        await SaveAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            CreateRequest());
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        await UploadDocumentAsync(
+            setup.Identity.AccessToken,
+            setup.Application.ApplicationId,
+            "SUPPORTING_DOCUMENT");
+
+        var response =
+            await SubmitAsync(
+                setup);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
     #region Helpers
     private sealed record Setup(
         TestAuthenticationResponse Identity,
@@ -972,6 +1430,71 @@ public sealed class SmartIdServiceTests(
         dependant.Should().NotBeNull();
 
         return dependant!;
+    }
+
+    private async Task UploadDocumentAsync(
+    string token,
+    Guid applicationId,
+    string documentType)
+    {
+        using var multipart =
+            new MultipartFormDataContent();
+
+        multipart.Add(
+            new StringContent(
+                documentType),
+            "DocumentType");
+
+        var file =
+            new ByteArrayContent(
+                TestPng);
+
+        file.Headers.ContentType =
+            new MediaTypeHeaderValue(
+                "image/png");
+
+        multipart.Add(
+            file,
+            "File",
+            $"{documentType.ToLowerInvariant()}.png");
+
+        using var request =
+            Authenticated(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/documents",
+                token);
+
+        request.Content =
+            multipart;
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+    }
+
+    private async Task<HttpResponseMessage>
+    SubmitAsync(
+        Setup setup)
+    {
+        using var request =
+            Authenticated(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{setup.Application.ApplicationId}/submit",
+                setup.Identity.AccessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new ApplicationActionRequest(
+                    setup.Application.RowVersion));
+
+        return await factory.Client.SendAsync(
+            request);
     }
     #endregion
 }
