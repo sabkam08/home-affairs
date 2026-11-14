@@ -6,6 +6,7 @@ using HomeAffairs.Contracts.Applications;
 using HomeAffairs.Contracts.Citizens;
 using HomeAffairs.Contracts.Identity;
 using HomeAffairs.Contracts.Workflow;
+using HomeAffairs.Contracts.Birth;
 using HomeAffairs.IntegrationTests.Identity;
 using HomeAffairs.IntegrationTests.Infrastructure;
 
@@ -531,10 +532,19 @@ public sealed class WorkflowExecutionTests(
     }
 
     private async Task<ApplicationResponse>
-        CreateApplicationAsync(
-            string accessToken)
+    CreateApplicationAsync(
+        string accessToken)
     {
-        var request =
+        /*
+            Workflow lifecycle tests use a Birth Certificate
+            Re-Issue application as their neutral valid fixture.
+
+            Smart ID submission now has service-specific detail and
+            document validation, so generic workflow tests should
+            not depend on Smart ID correction rules.
+        */
+
+        using var request =
             AuthenticatedRequest(
                 HttpMethod.Post,
                 "/api/v1/applications",
@@ -543,7 +553,7 @@ public sealed class WorkflowExecutionTests(
         request.Content =
             JsonContent.Create(
                 new CreateApplicationRequest(
-                    "SMART_ID_CORRECTION",
+                    "BIRTH_CERTIFICATE_REISSUE",
                     null));
 
         var response =
@@ -554,18 +564,166 @@ public sealed class WorkflowExecutionTests(
             .Should()
             .Be(HttpStatusCode.Created);
 
-        return
-            (await response.Content
+        var application =
+            await response.Content
                 .ReadFromJsonAsync<
-                    ApplicationResponse>())!;
+                    ApplicationResponse>();
+
+        application.Should().NotBeNull();
+
+        return application!;
+    }
+
+    private async Task SaveBirthReissueDetailsAsync(
+    string accessToken,
+    Guid applicationId)
+    {
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Put,
+                $"/api/v1/applications/" +
+                $"{applicationId}/birth",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new SaveBirthServiceDetailsRequest(
+                    ChildFirstName:
+                        null,
+
+                    ChildMiddleNames:
+                        null,
+
+                    ChildLastName:
+                        null,
+
+                    ChildDateOfBirth:
+                        null,
+
+                    ChildSex:
+                        null,
+
+                    PlaceOfBirth:
+                        null,
+
+                    ProvinceOfBirth:
+                        null,
+
+                    CountryOfBirth:
+                        null,
+
+                    MotherFirstName:
+                        null,
+
+                    MotherLastName:
+                        null,
+
+                    MotherIdNumber:
+                        null,
+
+                    FatherFirstName:
+                        null,
+
+                    FatherLastName:
+                        null,
+
+                    FatherIdNumber:
+                        null,
+
+                    CurrentCertificateNumber:
+                        "BC-WORKFLOW-TEST-001",
+
+                    RequestReason:
+                        "Workflow lifecycle integration test.",
+
+                    RowVersion:
+                        null));
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+    }
+
+    private async Task UploadDocumentAsync(
+    string accessToken,
+    Guid applicationId,
+    string documentType)
+    {
+        var testPng =
+            Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
+        using var multipart =
+            new MultipartFormDataContent();
+
+        multipart.Add(
+            new StringContent(
+                documentType),
+            "DocumentType");
+
+        var file =
+            new ByteArrayContent(
+                testPng);
+
+        file.Headers.ContentType =
+            new MediaTypeHeaderValue(
+                "image/png");
+
+        multipart.Add(
+            file,
+            "File",
+            "workflow-identity-document.png");
+
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/documents",
+                accessToken);
+
+        request.Content =
+            multipart;
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
     }
 
     private async Task<ApplicationResponse>
-        SubmitAsync(
-            string accessToken,
-            ApplicationResponse application)
+    SubmitAsync(
+        string accessToken,
+        ApplicationResponse application)
     {
-        var request =
+        /*
+            Prepare the Birth Certificate Re-Issue application
+            before submitting it.
+
+            Required details:
+                CurrentCertificateNumber
+                RequestReason
+
+            Required document:
+                IDENTITY_DOCUMENT
+        */
+
+        await SaveBirthReissueDetailsAsync(
+            accessToken,
+            application.ApplicationId);
+
+        await UploadDocumentAsync(
+            accessToken,
+            application.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        using var request =
             AuthenticatedRequest(
                 HttpMethod.Post,
                 $"/api/v1/applications/" +
@@ -585,10 +743,14 @@ public sealed class WorkflowExecutionTests(
             .Should()
             .Be(HttpStatusCode.OK);
 
-        return
-            (await response.Content
+        var submitted =
+            await response.Content
                 .ReadFromJsonAsync<
-                    ApplicationResponse>())!;
+                    ApplicationResponse>();
+
+        submitted.Should().NotBeNull();
+
+        return submitted!;
     }
 
     private async Task AssignAsync(
