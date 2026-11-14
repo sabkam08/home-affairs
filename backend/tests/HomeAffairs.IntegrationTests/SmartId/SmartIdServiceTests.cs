@@ -443,6 +443,294 @@ public sealed class SmartIdServiceTests(
         count.Should().Be(1);
     }
 
+    [Fact]
+    public async Task Citizen_should_not_create_second_active_smart_id_application()
+    {
+        var identity =
+            await CreateCitizenAsync();
+
+        var first =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW");
+
+        first.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+
+        var second =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW");
+
+        second.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Different_smart_id_type_should_still_be_blocked_for_same_subject()
+    {
+        var identity =
+            await CreateCitizenAsync();
+
+        var first =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW");
+
+        first.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+
+        var second =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_REPLACEMENT_LOST");
+
+        second.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Birth_application_should_not_block_smart_id_application()
+    {
+        var identity =
+            await CreateCitizenAsync();
+
+        var birth =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "BIRTH_CERTIFICATE_REISSUE");
+
+        birth.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+
+        var smartId =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW");
+
+        smartId.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Different_citizens_should_have_independent_smart_id_slots()
+    {
+        var firstCitizen =
+            await CreateCitizenAsync();
+
+        var secondCitizen =
+            await CreateCitizenAsync();
+
+        var first =
+            await CreateApplicationForCitizenAsync(
+                firstCitizen,
+                "SMART_ID_NEW");
+
+        var second =
+            await CreateApplicationForCitizenAsync(
+                secondCitizen,
+                "SMART_ID_NEW");
+
+        first.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+
+        second.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Cancelled_smart_id_application_should_release_subject_slot()
+    {
+        var identity =
+            await CreateCitizenAsync();
+
+        var firstResponse =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW");
+
+        var first =
+            await firstResponse.Content
+                .ReadFromJsonAsync<
+                    ApplicationResponse>();
+
+        first.Should().NotBeNull();
+
+        using var cancelRequest =
+            Authenticated(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{first!.ApplicationId}/cancel",
+                identity.AccessToken);
+
+        cancelRequest.Content =
+            JsonContent.Create(
+                new CancelApplicationRequest(
+                    first.RowVersion,
+                    "Applicant changed request."));
+
+        var cancelResponse =
+            await factory.Client.SendAsync(
+                cancelRequest);
+
+        cancelResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        var second =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_REPLACEMENT_LOST");
+
+        second.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Applicant_and_dependant_should_have_independent_smart_id_slots()
+    {
+        var identity =
+            await CreateCitizenAsync();
+
+        var selfApplication =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW");
+
+        selfApplication.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+
+        var dependant =
+            await CreateDependantAsync(
+                identity.AccessToken);
+
+        var dependantApplication =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW",
+                dependant.SubjectCitizenId);
+
+        dependantApplication.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Same_dependant_should_not_have_two_active_smart_id_applications()
+    {
+        var identity =
+            await CreateCitizenAsync();
+
+        var dependant =
+            await CreateDependantAsync(
+                identity.AccessToken);
+
+        var first =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW",
+                dependant.SubjectCitizenId);
+
+        first.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+
+        var second =
+            await CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_CORRECTION",
+                dependant.SubjectCitizenId);
+
+        second.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Concurrent_smart_id_creation_should_allow_only_one_active_application()
+    {
+        var identity =
+            await CreateCitizenAsync();
+
+        var firstTask =
+            CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_NEW");
+
+        var secondTask =
+            CreateApplicationForCitizenAsync(
+                identity,
+                "SMART_ID_REPLACEMENT_LOST");
+
+        var responses =
+            await Task.WhenAll(
+                firstTask,
+                secondTask);
+
+        responses
+            .Count(response =>
+                response.StatusCode ==
+                HttpStatusCode.Created)
+            .Should()
+            .Be(1);
+
+        responses
+            .Count(response =>
+                response.StatusCode ==
+                HttpStatusCode.Conflict)
+            .Should()
+            .Be(1);
+
+        var citizenId =
+            await factory.QueryScalarAsync<Guid>(
+                $"""
+             SELECT CitizenId
+             FROM [citizens].Citizens
+             WHERE UserId =
+                 '{identity.UserId}';
+             """);
+
+        var activeCount =
+            await factory.QueryScalarAsync<int>(
+                $"""
+             SELECT COUNT(1)
+             FROM [applications].Applications
+             WHERE SubjectCitizenId =
+                 '{citizenId}'
+               AND ApplicationType IN
+               (
+                   'SMART_ID_NEW',
+                   'SMART_ID_REPLACEMENT_LOST',
+                   'SMART_ID_REPLACEMENT_STOLEN',
+                   'SMART_ID_REPLACEMENT_DAMAGED',
+                   'SMART_ID_CORRECTION'
+               )
+               AND Status IN
+               (
+                   'DRAFT',
+                   'SUBMITTED',
+                   'IN_PROGRESS',
+                   'AWAITING_INFORMATION',
+                   'AWAITING_APPROVAL'
+               );
+             """);
+
+        activeCount
+            .Should()
+            .Be(1);
+    }
+
+    #region Helpers
     private sealed record Setup(
         TestAuthenticationResponse Identity,
         ApplicationResponse Application);
@@ -621,4 +909,69 @@ public sealed class SmartIdServiceTests(
 
         return request;
     }
+
+    private async Task<HttpResponseMessage>
+    CreateApplicationForCitizenAsync(
+        TestAuthenticationResponse identity,
+        string applicationType,
+        Guid? subjectCitizenId = null)
+    {
+        var request =
+            Authenticated(
+                HttpMethod.Post,
+                "/api/v1/applications",
+                identity.AccessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new CreateApplicationRequest(
+                    applicationType,
+                    subjectCitizenId));
+
+        return await factory.Client.SendAsync(
+            request);
+    }
+
+    private async Task<DependantResponse>
+    CreateDependantAsync(
+        string accessToken)
+    {
+        var request =
+            Authenticated(
+                HttpMethod.Post,
+                "/api/v1/citizens/me/dependants",
+                accessToken);
+
+        request.Content =
+            JsonContent.Create(
+                new CreateDependantRequest(
+                    null,
+                    "Smart",
+                    "ID",
+                    "Dependant",
+                    new DateOnly(
+                        2015,
+                        6,
+                        10),
+                    "F",
+                    "BIOLOGICAL_PARENT"));
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
+
+        var dependant =
+            await response.Content
+                .ReadFromJsonAsync<
+                    DependantResponse>();
+
+        dependant.Should().NotBeNull();
+
+        return dependant!;
+    }
+    #endregion
 }

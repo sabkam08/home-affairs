@@ -522,6 +522,20 @@ public sealed class GlobalExceptionHandler(
                         "by another request. Reload them and try again."
                 },
 
+            ActiveSmartIdApplicationException
+                activeSmartIdApplication =>
+                    new ProblemDetails
+                    {
+                        Status =
+                            StatusCodes.Status409Conflict,
+
+                        Title =
+                            "Active Smart ID application exists",
+
+                        Detail =
+                            activeSmartIdApplication.Message
+                    },
+
             DomainException domainException =>
                 new ProblemDetails
                 {

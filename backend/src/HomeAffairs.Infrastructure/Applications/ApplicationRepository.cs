@@ -72,6 +72,12 @@ internal sealed class ApplicationRepository(
             throw new
                 ApplicationSubjectAccessDeniedPersistenceException();
         }
+        catch (SqlException exception)
+            when (exception.Number == 53801)
+        {
+            throw new
+                ActiveSmartIdApplicationPersistenceException();
+        }
     }
 
     public async Task<HomeAffairsApplication?>

@@ -99,6 +99,12 @@ internal sealed class CreateApplicationCommandHandler(
             throw new
                 ApplicationSubjectAccessDeniedException();
         }
+        catch (
+            ActiveSmartIdApplicationPersistenceException)
+        {
+            throw new
+                ActiveSmartIdApplicationException();
+        }
     }
 
     internal static ApplicationResult Map(
