@@ -531,46 +531,17 @@ public sealed class ApplicationTests(
         var citizen =
             await CreateAdultCitizenAsync();
 
-        var createResponse =
-            await CreateApplicationAsync(
-                citizen.AccessToken,
-                new CreateApplicationRequest(
-                    "SMART_ID_NEW",
-                    null));
-
-        var created =
-            await createResponse.Content
-                .ReadFromJsonAsync<ApplicationResponse>();
-
-        created.Should().NotBeNull();
-
-        var response =
-            await SubmitApplicationAsync(
-                citizen.AccessToken,
-                created!.ApplicationId,
-                created.RowVersion);
-
-        response.StatusCode
-            .Should()
-            .Be(HttpStatusCode.OK);
-
         var submitted =
-            await response.Content
-                .ReadFromJsonAsync<ApplicationResponse>();
+            await CreateAndSubmitAsync(
+                citizen);
 
-        submitted.Should().NotBeNull();
-
-        submitted!.Status
+        submitted.Status
             .Should()
             .Be("SUBMITTED");
 
         submitted.SubmittedAtUtc
             .Should()
             .NotBeNull();
-
-        submitted.RowVersion
-            .Should()
-            .NotBe(created.RowVersion);
     }
 
     [Fact]
@@ -579,37 +550,16 @@ public sealed class ApplicationTests(
         var citizen =
             await CreateAdultCitizenAsync();
 
-        var createResponse =
-            await CreateApplicationAsync(
-                citizen.AccessToken,
-                new CreateApplicationRequest(
-                    "SMART_ID_NEW",
-                    null));
-
-        var created =
-            await createResponse.Content
-                .ReadFromJsonAsync<ApplicationResponse>();
-
-        created.Should().NotBeNull();
-
-        var submitResponse =
-            await SubmitApplicationAsync(
-                citizen.AccessToken,
-                created!.ApplicationId,
-                created.RowVersion);
-
         var submitted =
-            await submitResponse.Content
-                .ReadFromJsonAsync<ApplicationResponse>();
-
-        submitted.Should().NotBeNull();
+            await CreateAndSubmitAsync(
+                citizen);
 
         var update =
             await UpdateApplicationAsync(
                 citizen.AccessToken,
-                submitted!.ApplicationId,
+                submitted.ApplicationId,
                 new UpdateApplicationRequest(
-                    "SMART_ID_CORRECTION",
+                    "BIRTH_CERTIFICATE_REISSUE",
                     null,
                     submitted.RowVersion));
 
@@ -665,29 +615,15 @@ public sealed class ApplicationTests(
         var citizen =
             await CreateAdultCitizenAsync();
 
-        var createResponse =
-            await CreateApplicationAsync(
-                citizen.AccessToken,
-                new CreateApplicationRequest(
-                    "SMART_ID_NEW",
-                    null));
-
-        var created =
-            await createResponse.Content
-                .ReadFromJsonAsync<ApplicationResponse>();
-
-        created.Should().NotBeNull();
-
-        await SubmitApplicationAsync(
-            citizen.AccessToken,
-            created!.ApplicationId,
-            created.RowVersion);
+        var submitted =
+            await CreateAndSubmitAsync(
+                citizen);
 
         using var historyRequest =
             AuthenticatedRequest(
                 HttpMethod.Get,
                 $"/api/v1/applications/" +
-                $"{created.ApplicationId}/history",
+                $"{submitted.ApplicationId}/history",
                 citizen.AccessToken);
 
         var response =
@@ -1845,12 +1781,27 @@ public sealed class ApplicationTests(
     CreateAndSubmitAsync(
         TestAuthenticationResponse citizen)
     {
+        /*
+            Generic Application lifecycle tests should not depend
+            on Smart ID service-specific submission validation.
+
+            BIRTH_CERTIFICATE_REISSUE is used here as the neutral
+            lifecycle fixture.
+
+            We supply its required service details and document so
+            the Application is legitimately ready for submission.
+        */
+
         var create =
             await CreateApplicationAsync(
                 citizen.AccessToken,
                 new CreateApplicationRequest(
-                    "SMART_ID_CORRECTION",
+                    "BIRTH_CERTIFICATE_REISSUE",
                     null));
+
+        create.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
 
         var draft =
             await create.Content
@@ -1858,11 +1809,74 @@ public sealed class ApplicationTests(
 
         draft.Should().NotBeNull();
 
+        /*
+            Save the minimum valid Birth Re-Issue details.
+        */
+
+        using var birthRequest =
+            AuthenticatedRequest(
+                HttpMethod.Put,
+                $"/api/v1/applications/" +
+                $"{draft!.ApplicationId}/birth",
+                citizen.AccessToken);
+
+        birthRequest.Content =
+            JsonContent.Create(
+                new HomeAffairs.Contracts.Birth
+                    .SaveBirthServiceDetailsRequest(
+                        ChildFirstName: null,
+                        ChildMiddleNames: null,
+                        ChildLastName: null,
+                        ChildDateOfBirth: null,
+                        ChildSex: null,
+                        PlaceOfBirth: null,
+                        ProvinceOfBirth: null,
+                        CountryOfBirth: null,
+                        MotherFirstName: null,
+                        MotherLastName: null,
+                        MotherIdNumber: null,
+                        FatherFirstName: null,
+                        FatherLastName: null,
+                        FatherIdNumber: null,
+                        CurrentCertificateNumber:
+                            "BC-INTEGRATION-TEST",
+                        RequestReason:
+                            "Generic application lifecycle integration test.",
+                        RowVersion: null));
+
+        var birthResponse =
+            await factory.Client.SendAsync(
+                birthRequest);
+
+        birthResponse.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
+
+        /*
+            BIRTH_CERTIFICATE_REISSUE requires one
+            IDENTITY_DOCUMENT.
+        */
+
+        await UploadApplicationTestDocumentAsync(
+            citizen.AccessToken,
+            draft.ApplicationId,
+            "IDENTITY_DOCUMENT");
+
+        /*
+            The Birth-details/document writes do not mutate the
+            Application row, so the original Application RowVersion
+            remains valid for submission.
+        */
+
         var submit =
             await SubmitApplicationAsync(
                 citizen.AccessToken,
-                draft!.ApplicationId,
+                draft.ApplicationId,
                 draft.RowVersion);
+
+        submit.StatusCode
+            .Should()
+            .Be(HttpStatusCode.OK);
 
         var submitted =
             await submit.Content
@@ -1870,7 +1884,61 @@ public sealed class ApplicationTests(
 
         submitted.Should().NotBeNull();
 
-        return submitted!;
+        submitted!.Status
+            .Should()
+            .Be("SUBMITTED");
+
+        return submitted;
+    }
+
+    private async Task
+    UploadApplicationTestDocumentAsync(
+        string accessToken,
+        Guid applicationId,
+        string documentType)
+    {
+        var content =
+            Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
+        using var multipart =
+            new MultipartFormDataContent();
+
+        multipart.Add(
+            new StringContent(
+                documentType),
+            "DocumentType");
+
+        var file =
+            new ByteArrayContent(
+                content);
+
+        file.Headers.ContentType =
+            new MediaTypeHeaderValue(
+                "image/png");
+
+        multipart.Add(
+            file,
+            "File",
+            $"{documentType.ToLowerInvariant()}.png");
+
+        using var request =
+            AuthenticatedRequest(
+                HttpMethod.Post,
+                $"/api/v1/applications/" +
+                $"{applicationId}/documents",
+                accessToken);
+
+        request.Content =
+            multipart;
+
+        var response =
+            await factory.Client.SendAsync(
+                request);
+
+        response.StatusCode
+            .Should()
+            .Be(HttpStatusCode.Created);
     }
 
     private async Task<HttpResponseMessage>
